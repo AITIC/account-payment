@@ -119,6 +119,14 @@ result = withholdable_base_amount * 0.10
                 return rule
         return False
 
+    def _get_computed_withholding_amount(self, payment_group, vals):
+        currency = payment_group.currency_id
+        period_withholding_amount = currency.round(vals.get(
+            'period_withholding_amount', 0.0))
+        previous_withholding_amount = currency.round(vals.get(
+            'previous_withholding_amount'))
+        return max(0, (period_withholding_amount - previous_withholding_amount))
+
     def create_payment_withholdings(self, payment_group):
         for tax in self.filtered(lambda x: x.withholding_type != 'none'):
             payment_withholding = self.env[
@@ -146,14 +154,7 @@ result = withholdable_base_amount * 0.10
             # si no puede pasarse un valor con mas decimales del que se ve
             # y terminar dando error en el asiento por debitos y creditos no
             # son iguales, algo parecido hace odoo en el compute_all de taxes
-            currency = payment_group.currency_id
-            period_withholding_amount = currency.round(vals.get(
-                'period_withholding_amount', 0.0))
-            previous_withholding_amount = currency.round(vals.get(
-                'previous_withholding_amount'))
-            # withholding can not be negative
-            computed_withholding_amount = max(0, (
-                period_withholding_amount - previous_withholding_amount))
+            computed_withholding_amount = tax._get_computed_withholding_amount(payment_group, vals)
 
             if not computed_withholding_amount:
                 # if on refresh no more withholding, we delete if it exists
