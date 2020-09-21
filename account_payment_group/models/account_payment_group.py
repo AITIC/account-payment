@@ -242,7 +242,7 @@ class AccountPaymentGroup(models.Model):
     writeoff_amount = fields.Monetary(
         string='Payment difference amount',
         track_visibility='onchange')
-
+        
     @api.depends(
         'state',
         'payments_amount',
@@ -480,6 +480,8 @@ class AccountPaymentGroup(models.Model):
 
     @api.onchange('partner_id', 'partner_type', 'company_id')
     def _refresh_payments_and_move_lines(self):
+        if self._context.get('to_pay_move_line_ids'):
+            return
         for rec in self:
             rec.add_all()
 
@@ -502,8 +504,8 @@ class AccountPaymentGroup(models.Model):
 
     def add_all(self):
         for rec in self:
-            # Cuando se genera el pago desde la factura no reconocia solo las deudas de las
-            # facturas a pagar sino la deuda global.
+            # Cuando se genera el pago desde la factura debe reconocer las deudas de las
+            # facturas a pagar y no la deuda global.
             if self._context.get('to_pay_move_line_ids', False):
                 to_pay_move_line_ids = self._context.get('to_pay_move_line_ids')
                 rec.to_pay_move_line_ids = self.env['account.move.line'].browse(

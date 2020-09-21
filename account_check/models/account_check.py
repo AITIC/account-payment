@@ -148,13 +148,13 @@ class AccountCheck(models.Model):
     )
     checkbook_id = fields.Many2one(
         'account.checkbook',
-        string='Checkbook',
+        'Checkbook',
         readonly=True,
         states={'draft': [('readonly', False)]},
         auto_join=True,
         index=True,
     )
-    check_subtype = fields.Selection(
+    issue_check_subtype = fields.Selection(
         [('deferred', 'Deferred'), ('currents', 'Currents'), ('electronic', 'Electronic')],
         string='Check Subtype',
         required=True,
@@ -202,24 +202,24 @@ class AccountCheck(models.Model):
         index=True,
     )
     issue_date = fields.Date(
-        string='Issue Date',
+        'Issue Date',
         required=True,
         readonly=True,
         states={'draft': [('readonly', False)]},
         default=fields.Date.context_today,
     )
     owner_vat = fields.Char(
-        string='Owner Vat',
+        'Owner Vat',
         readonly=True,
         states={'draft': [('readonly', False)]}
     )
     owner_name = fields.Char(
-        string='Owner Name',
+        'Owner Name',
         readonly=True,
         states={'draft': [('readonly', False)]}
     )
     bank_id = fields.Many2one(
-        'res.bank', string='Bank',
+        'res.bank', 'Bank',
         readonly=True,
         states={'draft': [('readonly', False)]}
     )
@@ -296,23 +296,7 @@ class AccountCheck(models.Model):
     @api.onchange('checkbook_id')
     def onchange_checkbook_id(self):
         for rec in self:
-            rec.check_subtype = rec.checkbook_id.check_subtype
-
-    @api.onchange('journal_id')
-    def onchange_journal_id(self):
-        for rec in self:
-            if rec.journal_id and rec.type == 'issue_check':
-                rec.bank_id = rec.journal_id.bank_id
-
-    @api.onchange('amount', 'currency_id')
-    def onchange_amount(self):
-        for rec in self:
-            if rec.amount and rec.currency_id and rec.currency_id != rec.company_currency_id:
-                rec.amount_company_currency = rec.currency_id._convert(
-                    rec.amount, rec.company_id.currency_id,
-                    rec.company_id, rec.issue_date)
-            else:
-                rec.amount_company_currency = rec.amount
+            rec.issue_check_subtype = rec.checkbook_id.issue_check_subtype
 
     @api.constrains(
         'type',
@@ -468,6 +452,14 @@ class AccountCheck(models.Model):
                     self._fields['state'].convert_to_export(old_state, self),
                     self.name,
                     self.id))
+
+    @api.model
+    def create(self, vals):
+        type = vals.get('type', False) or self._context.get('default_type', False)
+        if vals.get('journal_id', False) and type and type == 'issue_check' and not vals.get('bank_id', False):
+            journal_id = self.env['account.journal'].browse(vals['journal_id'])
+            vals['bank_id'] = journal_id.bank_id.id if journal_id.bank_id else False
+        return super(AccountCheck, self).create(vals)
 
     def unlink(self):
         for rec in self:
