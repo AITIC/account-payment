@@ -234,6 +234,7 @@ result = withholdable_base_amount * 0.10
         common_previous_domain = [
             ('partner_id.commercial_partner_id', '=',
                 payment_group.commercial_partner_id.id),
+            ('partner_type', '=', payment_group.partner_type),
         ]
         if self.withholding_accumulated_payments == 'month':
             from_relative_delta = relativedelta(day=1)
