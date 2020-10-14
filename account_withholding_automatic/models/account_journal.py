@@ -34,5 +34,5 @@ class AccountJournal(models.Model):
             rec.withholding_journal = False
             if payment_in_method and rec.inbound_payment_method_ids or \
                     payment_out_method in rec.outbound_payment_method_ids:
-                rec.other_currency = True
+                rec.withholding_journal = True
 
