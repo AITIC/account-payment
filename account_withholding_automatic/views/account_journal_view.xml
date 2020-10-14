@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="account.view_account_journal_form"/>
         <field name="arch" type="xml">
            <xpath expr="//page[@name='advanced_settings']/group[1]" position="inside">
-                <group string="Withholding" attrs="{'invisible': [('withholding_journal', '=', True)]}">
+                <group string="Withholding" attrs="{'invisible': [('withholding_journal', '!=', True)]}">
                     <field name="withholding_journal" invisible="1"/>
                     <field name="withholding_account_tag_ids" widget="many2many_tags" domain="[('applicability', '=', 'taxes')]"/>
                 </group>

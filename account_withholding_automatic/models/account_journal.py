@@ -32,7 +32,7 @@ class AccountJournal(models.Model):
             'account_payment_method_in_withholding')
         for rec in self:
             rec.withholding_journal = False
-            if payment_in_method and rec.inbound_payment_method_ids or \
+            if payment_in_method in rec.inbound_payment_method_ids or \
                     payment_out_method in rec.outbound_payment_method_ids:
                 rec.withholding_journal = True
 
