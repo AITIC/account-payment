@@ -19,6 +19,11 @@ class AccountTax(models.Model):
         digits='Account',
         help="Amounts lower than this wont't have any withholding"
     )
+    minimum_withholding_amount = fields.Float(
+        'Minimum withholding amount',
+        digits='Account',
+        help="The withholding amount must be greater than this amount to apply the withholding."
+    )
     withholding_amount_type = fields.Selection([
         ('untaxed_amount', 'Untaxed Amount'),
         ('total_amount', 'Total Amount'),
@@ -119,6 +124,14 @@ result = withholdable_base_amount * 0.10
                 return rule
         return False
 
+    def _get_computed_withholding_amount(self, payment_group, vals):
+        currency = payment_group.currency_id
+        period_withholding_amount = currency.round(vals.get(
+            'period_withholding_amount', 0.0))
+        previous_withholding_amount = currency.round(vals.get(
+            'previous_withholding_amount'))
+        return max(0, (period_withholding_amount - previous_withholding_amount))
+
     def create_payment_withholdings(self, payment_group):
         for tax in self.filtered(lambda x: x.withholding_type != 'none'):
             payment_withholding = self.env[
@@ -146,14 +159,10 @@ result = withholdable_base_amount * 0.10
             # si no puede pasarse un valor con mas decimales del que se ve
             # y terminar dando error en el asiento por debitos y creditos no
             # son iguales, algo parecido hace odoo en el compute_all de taxes
-            currency = payment_group.currency_id
-            period_withholding_amount = currency.round(vals.get(
-                'period_withholding_amount', 0.0))
-            previous_withholding_amount = currency.round(vals.get(
-                'previous_withholding_amount'))
-            # withholding can not be negative
-            computed_withholding_amount = max(0, (
-                period_withholding_amount - previous_withholding_amount))
+            computed_withholding_amount = tax._get_computed_withholding_amount(payment_group, vals)
+
+            if tax and tax.minimum_withholding_amount and tax.minimum_withholding_amount > computed_withholding_amount:
+                computed_withholding_amount = 0
 
             if not computed_withholding_amount:
                 # if on refresh no more withholding, we delete if it exists
@@ -181,11 +190,7 @@ result = withholdable_base_amount * 0.10
                 payment_method = self.env.ref(
                     'account_withholding.'
                     'account_payment_method_out_withholding')
-                journal = self.env['account.journal'].search([
-                    ('company_id', '=', tax.company_id.id),
-                    ('outbound_payment_method_ids', '=', payment_method.id),
-                    ('type', 'in', ['cash', 'bank']),
-                ], limit=1)
+                journal = self.get_journal_payment(tax, payment_method, payment_group)
                 if not journal:
                     raise UserError(_(
                         'No journal for withholdings found on company %s') % (
@@ -197,6 +202,28 @@ result = withholdable_base_amount * 0.10
                 vals['partner_id'] = payment_group.partner_id.id
                 payment_withholding = payment_withholding.create(vals)
         return True
+
+    def get_journal_payment(self, tax, payment_method, payment_group):
+        if payment_group.partner_type == 'supplier':
+            rep_field = 'invoice_repartition_line_ids'
+        else:
+            rep_field = 'refund_repartition_line_ids'
+        rep_lines = tax[rep_field].filtered(lambda x: x.repartition_type == 'tax')
+        tag_ids = rep_lines.mapped('tag_ids')
+        journal_ids = self.env['account.journal'].search([
+            ('company_id', '=', tax.company_id.id),
+            ('outbound_payment_method_ids', '=', payment_method.id),
+            ('type', 'in', ['cash', 'bank']),
+        ])
+        if tag_ids and journal_ids:
+            journal_tag_ids = journal_ids.filtered(lambda x: x.withholding_account_tag_ids & tag_ids)
+            if journal_tag_ids:
+                return journal_tag_ids[0]
+            else:
+                return journal_ids[0]
+        else:
+            return False
+
 
     # def get_withholdable_invoiced_amount(self, payment_group):
     #     self.ensure_one()
@@ -233,6 +260,7 @@ result = withholdable_base_amount * 0.10
         common_previous_domain = [
             ('partner_id.commercial_partner_id', '=',
                 payment_group.commercial_partner_id.id),
+            ('partner_type', '=', payment_group.partner_type),
         ]
         if self.withholding_accumulated_payments == 'month':
             from_relative_delta = relativedelta(day=1)

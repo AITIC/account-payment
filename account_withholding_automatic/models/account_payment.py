@@ -2,7 +2,7 @@
 # For copyright and license notices, see __manifest__.py file in module root
 # directory
 ##############################################################################
-from odoo import models, fields
+from odoo import models, fields, api
 # import odoo.addons.decimal_precision as dp
 # from odoo.exceptions import ValidationError
 # from dateutil.relativedelta import relativedelta
@@ -72,3 +72,23 @@ class AccountPayment(models.Model):
                 'tax_withholding_id')
             vals['tax_ids'] = [(6, False, taxes.ids)]
         return vals
+
+    @api.onchange('payment_method_code')
+    def onchange_tax_withholding_id(self):
+        if self.payment_method_code == 'withholding' and not self.tax_withholding_id and \
+                self.journal_id.withholding_account_tag_ids and self.payment_type in ['inbound', 'outbound']:
+            if (
+                    (self.partner_type == 'customer' and
+                        self.payment_type == 'inbound') or
+                    (self.partner_type == 'supplier' and
+                        self.payment_type == 'outbound')):
+                rep_field = 'invoice_repartition_line_ids'
+            else:
+                rep_field = 'refund_repartition_line_ids'
+            tax_ids = self.env['account.tax'].search([('type_tax_use', '=', self.partner_type),
+                                              ('company_id', '=', self.company_id.id)])
+            tax_withholding_ids = tax_ids[rep_field].filtered(lambda x: x.repartition_type == 'tax' and \
+                                                             x.mapped('tag_ids') & \
+                                                             self.journal_id.withholding_account_tag_ids).mapped('tax_id')
+            if tax_withholding_ids:
+                self.tax_withholding_id = tax_withholding_ids[0]
