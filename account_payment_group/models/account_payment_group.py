@@ -597,8 +597,8 @@ class AccountPaymentGroup(models.Model):
             # si el pago se esta posteando desde statements y hay doble
             # validacion no verificamos que haya deuda seleccionada
             if (rec.payment_subtype == 'double_validation' and
-                    rec.payment_difference and (not create_from_statement and
-                                                not create_from_expense)):
+                    rec.payment_difference and rec.payment_difference_handling != 'reconcile' and
+                    (not create_from_statement and not create_from_expense)):
                 raise ValidationError(_(
                     'To Pay Amount and Payment Amount must be equal!'))
 
