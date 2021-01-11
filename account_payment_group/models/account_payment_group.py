@@ -517,6 +517,7 @@ class AccountPaymentGroup(models.Model):
                     rec._get_to_pay_move_lines_domain())
 
     def remove_all(self):
+        self.unreconciled_amount = 0.0
         self.to_pay_move_line_ids = False
 
     @api.model
