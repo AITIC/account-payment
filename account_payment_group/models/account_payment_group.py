@@ -210,7 +210,7 @@ class AccountPaymentGroup(models.Model):
         'account.move.line',
         # related o2m a o2m solo toma el primer o2m y le hace o2m, por eso
         # hacemos computed
-        # related='payment_ids.move_line_ids',
+        # related='payment_ids.line_ids',
         compute='_compute_move_lines',
         readonly=True,
         copy=False,
@@ -371,7 +371,7 @@ class AccountPaymentGroup(models.Model):
                 payment_subtype = 'simple'
             rec.payment_subtype = payment_subtype
 
-    @api.depends('payment_ids.move_line_ids')
+    @api.depends('payment_ids.line_ids')
     def _compute_matched_move_line_ids(self):
         """
         Lar partial reconcile vinculan dos apuntes con credit_move_id y
@@ -384,7 +384,7 @@ class AccountPaymentGroup(models.Model):
         for rec in self:
             lines = rec.move_line_ids.browse()
             # not sure why but self.move_line_ids dont work the same way
-            payment_lines = rec.payment_ids.mapped('move_line_ids')
+            payment_lines = rec.payment_ids.mapped('line_ids')
 
             reconciles = rec.env['account.partial.reconcile'].search([
                 ('credit_move_id', 'in', payment_lines.ids)])
@@ -396,10 +396,10 @@ class AccountPaymentGroup(models.Model):
 
             rec.matched_move_line_ids = lines - payment_lines
 
-    @api.depends('payment_ids.move_line_ids')
+    @api.depends('payment_ids.line_ids')
     def _compute_move_lines(self):
         for rec in self:
-            rec.move_line_ids = rec.payment_ids.mapped('move_line_ids')
+            rec.move_line_ids = rec.payment_ids.mapped('line_ids')
 
     @api.depends('partner_type')
     def _compute_account_internal_type(self):
@@ -560,7 +560,7 @@ class AccountPaymentGroup(models.Model):
         # TODO en alguos casos setear sent como en payment?
         self.write({'state': 'posted'})
 
-    def cancel(self):
+    def action_cancel(self):
         self.mapped('payment_ids').cancel()
         self.write({'state': 'cancel'})
         return True
@@ -583,7 +583,7 @@ class AccountPaymentGroup(models.Model):
                 raise ValidationError(_('To Pay Lines must be of the same account!'))
         self.write({'state': 'confirmed'})
 
-    def post(self):
+    def action_post(self):
         create_from_website = self._context.get('create_from_website', False)
         create_from_statement = self._context.get('create_from_statement', False)
         create_from_expense = self._context.get('create_from_expense', False)
@@ -602,8 +602,8 @@ class AccountPaymentGroup(models.Model):
                 raise ValidationError(_(
                     'To Pay Amount and Payment Amount must be equal!'))
 
-            writeoff_acc_id = False
-            writeoff_journal_id = False
+            # writeoff_acc_id = False
+            # writeoff_journal_id = False
 
             #Conciliar en una cuenta contable la diferencia entre la deuda y lo pagado.
             if rec.payment_difference_handling == 'reconcile':
@@ -612,37 +612,40 @@ class AccountPaymentGroup(models.Model):
             # al crear desde website odoo crea primero el pago y lo postea
             # y no debemos re-postearlo
             if not create_from_website and not create_from_expense:
-                rec.payment_ids.sorted(key=lambda l: l.signed_amount).filtered(lambda x: x.state == 'draft').post()
+                rec.payment_ids.sorted(key=lambda l: l.signed_amount).filtered(lambda x: x.state == 'draft').action_post()
 
-            counterpart_aml = rec.payment_ids.mapped('move_line_ids').filtered(
+            counterpart_aml = rec.payment_ids.mapped('line_ids').filtered(
                 lambda r: not r.reconciled and r.account_id.internal_type in (
                     'payable', 'receivable'))
 
             # porque la cuenta podria ser no recivible y ni conciliable
             # (por ejemplo en sipreco)
             if counterpart_aml and rec.to_pay_move_line_ids:
-                (counterpart_aml + (rec.to_pay_move_line_ids)).reconcile(
-                    writeoff_acc_id, writeoff_journal_id)
+                (counterpart_aml + (rec.to_pay_move_line_ids)).reconcile()
 
             rec.state = 'posted'
         return True
 
     def reconcile_diff_payment(self):
         self.ensure_one()
-        sign = self.partner_type == 'supplier' and -1.0 or 1.0
         payment_curr = self.payment_ids.filtered(lambda x: x.currency_id == self.currency_id)
         if payment_curr:
             payment_diff = payment_curr.sorted(key=lambda i: i.amount, reverse=True)[0]
         else:
             payment_diff = self.payment_ids.sorted(key=lambda i: i.amount, reverse=True)[0]
-        payment_diff.payment_difference = sign * self.currency_id._convert(self.payment_difference,
+        payment_difference = self.currency_id._convert(self.payment_difference,
                                                                     payment_diff.currency_id,
                                                                     self.company_id,
                                                                     self.payment_date or fields.Date.today())
         self.writeoff_amount = self.payment_difference * -1
-        payment_diff.payment_difference_handling = self.payment_difference_handling
-        payment_diff.writeoff_account_id = self.writeoff_account_id.id
-        payment_diff.writeoff_label = self.writeoff_label
+        write_off_line_vals = {
+            'name': self.writeoff_label,
+            'amount': payment_difference,
+            'account_id': self.writeoff_account_id.id,
+        }
+        payment_diff.write({
+            'write_off_line_vals': write_off_line_vals
+        })
 
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, **kwargs):
@@ -657,7 +660,7 @@ class AccountPaymentGroup(models.Model):
             return ''
         move_ids = self.env['account.move'].browse(active_ids)
         if move_ids.filtered(lambda x: x.state != 'posted') or \
-                move_ids.filtered(lambda x: x.invoice_payment_state != 'not_paid'):
+                move_ids.filtered(lambda x: x.payment_state != 'not_paid'):
             raise ValidationError(_('You can only register payment if invoice is posted and unpaid'))
         return {
             'name': _('Register Payment'),

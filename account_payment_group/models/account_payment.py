@@ -310,7 +310,7 @@ class AccountPayment(models.Model):
             payment.payment_group_id.post()
         return payment
 
-    @api.depends('invoice_ids', 'payment_type', 'partner_type', 'partner_id')
+    @api.depends('journal_id', 'partner_id', 'partner_type', 'is_internal_transfer')
     def _compute_destination_account_id(self):
         """
         If we are paying a payment gorup with paylines, we use account
@@ -362,3 +362,17 @@ class AccountPayment(models.Model):
                             line[2]['credit'] = rec.force_amount_company_currency
                 all_moves_vals += [move_vals]
         return all_moves_vals
+
+    def write(self, vals):
+        # OVERRIDE
+        if vals.get('write_off_line_vals', False):
+            write_off_line_vals = vals.pop('write_off_line_vals', None)
+            for pay in self:
+                    lines = pay._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals)
+                    line_ids = [(5, 0)]
+                    for line in lines:
+                        line_ids.append((0, False, line))
+                    if line_ids:
+                        vals['line_ids'] = line_ids
+        res = super().write(vals)
+        return res

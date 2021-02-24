@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 {
     'author': 'ADHOC SA',
     'website': 'www.adhoc.com.ar',
@@ -13,5 +14,5 @@
     'installable': True,
     'name': 'Account Payment Fix',
     'test': [],
-    'version': "13.0.1.0.0",
+    'version': "14.0.1.0.0",
 }

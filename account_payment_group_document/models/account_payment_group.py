@@ -65,7 +65,13 @@ class AccountPaymentGroup(models.Model):
             if not rec.document_number:
                 rec.name = False
             else:
-                document_number = rec.document_type_id._format_document_number(rec.document_number)
+                document_number = rec.document_number
+                if rec.receiptbook_id and rec.receiptbook_id.sequence_type == 'manual' and rec.receiptbook_id.padding:
+                    document_number = document_number.zfill(rec.receiptbook_id.padding)
+                if rec.receiptbook_id and rec.receiptbook_id.sequence_type == 'manual' and rec.receiptbook_id.prefix:
+                    interpolated_prefix = rec.receiptbook_id._get_manual_prefix()
+                    document_number = interpolated_prefix + document_number
+                document_number = rec.document_type_id._format_document_number(document_number)
                 if rec.document_number != document_number:
                     rec.document_number = document_number
                 rec.name = "%s %s" % (rec.document_type_id.doc_code_prefix, document_number)
