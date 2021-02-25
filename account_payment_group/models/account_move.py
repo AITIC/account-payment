@@ -28,6 +28,12 @@ class AccountMove(models.Model):
         compute_sudo=True,
     )
 
+    @api.depends('posted_before', 'state', 'journal_id', 'date')
+    def _compute_name(self):
+        without_not_journal = self.filtered(lambda x: not x.journal_id)
+        without_not_journal.name = '/'
+        super(AccountMove, self - without_not_journal)._compute_name()
+
     def _compute_payment_groups(self):
         """
         El campo en invoices "payment_id" no lo seteamos con los payment groups
@@ -50,7 +56,7 @@ class AccountMove(models.Model):
 
     def action_account_invoice_payment_group(self):
         self.ensure_one()
-        if self.state != 'posted' or self.payment_state != 'not_paid':
+        if self.state != 'posted' or self.payment_state not in ['not_paid', 'partial']:
             raise ValidationError(_('You can only register payment if invoice is posted and unpaid'))
         return {
             'name': _('Register Payment'),

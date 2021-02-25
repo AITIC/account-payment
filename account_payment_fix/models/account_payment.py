@@ -19,10 +19,12 @@ class AccountPayment(models.Model):
         domain="['|', ('parent_id','=', False), ('is_company','=', True)]",
         check_company=True,
         track_visibility='always')
-    currency_id = fields.Many2one('res.currency', string='Currency', store=True, readonly=False,
-        compute='_compute_currency_id',
-        help="The payment's currency.",
-        track_visibility='always')
+
+    currency_id = fields.Many2one('res.currency', store=True, readonly=True, tracking=True, required=True,
+                                  states={'draft': [('readonly', False)]},
+                                  string='Currency',
+                                  track_visibility='always',
+                                  compute=False)
 
     # amount = fields.Monetary(track_visibility='always')
     # partner_id = fields.Many2one(track_visibility='always')
@@ -184,9 +186,8 @@ class AccountPayment(models.Model):
         diferencias de cambio
         """
         if self.journal_id:
-            #En version 14 la moneda es un compute
-            # self.currency_id = (
-            #     self.journal_id.currency_id or self.company_id.currency_id)
+            self.currency_id = (self.journal_id.currency_id or self.company_id.currency_id or
+                                self.journal_id.company_id.currency_id)
             # Set default payment method
             # (we consider the first to be the default one)
             payment_methods = (

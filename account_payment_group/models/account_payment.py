@@ -101,15 +101,19 @@ class AccountPayment(models.Model):
     @api.onchange('journal_id')
     def _onchange_journal(self):
         update_currency = False
-        currency_id = self.currency_id
+        currency_id = self.currency_id or self.payment_group_company_id.currency_id or self.env.user.company_id.currency_id
+
         if (self.journal_id.currency_id and self.journal_id.currency_id != self.currency_id
         ) or (not self.journal_id.currency_id and self.journal_id.company_id.currency_id != self.currency_id):
             update_currency = True
         res = super(AccountPayment, self)._onchange_journal()
+        if not self.company_id:
+            self.company_id = self.journal_id.company_id
         if self.journal_id and update_currency:
             currency_to_id = self.journal_id.currency_id or self.journal_id.company_id.currency_id
             self.amount = currency_id._convert(self.amount, currency_to_id, self.company_id,
-                                                           self.payment_date or fields.Date.context_today())
+                                                           self.date or fields.Date.context_today())
+
         return res
 
     @api.depends('amount', 'other_currency', 'amount_company_currency')
@@ -131,7 +135,7 @@ class AccountPayment(models.Model):
             if rec.other_currency and rec.amount_company_currency != \
                     rec.currency_id._convert(
                         rec.amount, rec.company_id.currency_id,
-                        rec.company_id, rec.payment_date):
+                        rec.company_id, rec.date):
                 force_amount_company_currency = rec.amount_company_currency
             else:
                 force_amount_company_currency = False
@@ -152,7 +156,7 @@ class AccountPayment(models.Model):
             else:
                 amount_company_currency = rec.currency_id._convert(
                     rec.amount, rec.company_id.currency_id,
-                    rec.company_id, rec.payment_date)
+                    rec.company_id, rec.date)
             rec.amount_company_currency = amount_company_currency
 
     @api.onchange('payment_type_copy')
@@ -208,6 +212,10 @@ class AccountPayment(models.Model):
                 raise ValidationError(_(
                     "Payments without partners (usually transfers) cant't "
                     "have a related payment group"))
+
+    @api.depends('move_id.name', 'journal_id')
+    def name_get(self):
+        return [(payment.id, payment.move_id.name or _('Draft Payment')) for payment in self]
 
     @api.model
     def get_amls(self):
