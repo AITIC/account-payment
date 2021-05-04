@@ -32,23 +32,23 @@ class AccountMoveLine(models.Model):
         payment_group_id = self._context.get('payment_group_id')
         if not payment_group_id:
             self.payment_group_matched_amount = 0.0
-        else:
-            payments = self.env['account.payment.group'].browse(
-                payment_group_id).payment_ids
-            payment_move_lines = payments.mapped('move_line_ids')
+            return False
+        payments = self.env['account.payment.group'].browse(
+            payment_group_id).payment_ids
+        payment_move_lines = payments.mapped('move_line_ids')
 
-            for rec in self:
-                matched_amount = 0.0
-                reconciles = self.env['account.partial.reconcile'].search([
-                    ('credit_move_id', 'in', payment_move_lines.ids),
-                    ('debit_move_id', '=', rec.id)])
-                matched_amount += sum(reconciles.mapped('amount'))
+        for rec in self:
+            matched_amount = 0.0
+            reconciles = self.env['account.partial.reconcile'].search([
+                ('credit_move_id', 'in', payment_move_lines.ids),
+                ('debit_move_id', '=', rec.id)])
+            matched_amount += sum(reconciles.mapped('amount'))
 
-                reconciles = self.env['account.partial.reconcile'].search([
-                    ('debit_move_id', 'in', payment_move_lines.ids),
-                    ('credit_move_id', '=', rec.id)])
-                matched_amount -= sum(reconciles.mapped('amount'))
-                rec.payment_group_matched_amount = matched_amount
+            reconciles = self.env['account.partial.reconcile'].search([
+                ('debit_move_id', 'in', payment_move_lines.ids),
+                ('credit_move_id', '=', rec.id)])
+            matched_amount -= sum(reconciles.mapped('amount'))
+            rec.payment_group_matched_amount = matched_amount
 
     payment_group_matched_amount = fields.Monetary(
         compute='_compute_payment_group_matched_amount',
