@@ -34,6 +34,7 @@
                             </div>
                             <field name="withholding_non_taxable_minimum"/>
                             <field name="withholding_non_taxable_amount"/>
+                            <field name="minimum_withholding_amount"/>
                             <field name="withholding_user_error_message"/>
                             <field name="withholding_user_error_domain" attrs="{'invisible': [('withholding_user_error_message', '=', False)]}"/>
                         </group>

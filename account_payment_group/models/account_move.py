@@ -76,8 +76,8 @@ class AccountMove(models.Model):
             },
         }
 
-    def action_post(self):
-        res = super(AccountMove, self).action_post()
+    def post(self):
+        res = super(AccountMove, self).post()
         self.pay_now()
         return res
 
