@@ -63,7 +63,7 @@ class AccountPayment(models.Model):
     def _get_withholding_line_vals(self):
         vals = {}
         if self.payment_method_code == 'withholding':
-            if self.payment_type == 'transfer':
+            if self.is_internal_transfer:
                 raise UserError(_(
                     'You can not use withholdings on transfers!'))
             if (

@@ -94,6 +94,7 @@ class AccountPayment(models.Model):
 
     @api.onchange('payment_group_id')
     def onchange_payment_group_id(self):
+        self.partner_id = self.payment_group_id.partner_id.id
         if self.payment_group_id.payment_difference:
             self.amount = self.payment_group_id.payment_difference
 
@@ -164,12 +165,12 @@ class AccountPayment(models.Model):
         for rec in self:
             # if false, then it is a transfer
             rec.payment_type = (
-                rec.payment_type_copy and rec.payment_type_copy or 'transfer')
+                rec.payment_type_copy and rec.payment_type_copy or 'outbound')
 
-    @api.depends('payment_type')
+    @api.depends('payment_type', 'is_internal_transfer')
     def _compute_payment_type_copy(self):
         for rec in self:
-            if rec.payment_type == 'transfer':
+            if rec.is_internal_transfer:
                 rec.payment_type_copy = False
             else:
                 rec.payment_type_copy = rec.payment_type
@@ -309,13 +310,13 @@ class AccountPayment(models.Model):
                 'partner_type': vals.get('partner_type'),
                 'partner_id': vals.get('partner_id'),
                 'payment_date': vals.get(
-                    'payment_date', fields.Date.context_today(self)),
+                    'date', fields.Date.context_today(self)),
                 'communication': vals.get('communication'),
             })
             vals['payment_group_id'] = payment_group.id
         payment = super(AccountPayment, self).create(vals)
         if create_payment_group:
-            payment.payment_group_id.post()
+            payment.payment_group_id.action_post()
         return payment
 
     @api.depends('journal_id', 'partner_id', 'partner_type', 'is_internal_transfer')

@@ -9,7 +9,7 @@ class AccountPayment(models.Model):
 
     def action_draft(self):
         for rec in self:
-            if rec.payment_type == 'transfer':
+            if rec.is_internal_transfer == True:
                 transfer_account = rec.company_id.transfer_account_id
                 rec.move_line_ids.filtered(
                     lambda x: x.account_id == transfer_account

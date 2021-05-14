@@ -232,7 +232,7 @@ class AccountPayment(models.Model):
             [('check_owner_vat', '=', self.check_owner_vat)],
             limit=1).check_owner_name
         if not check_owner_name:
-            check_owner_name = self.partner_id.commercial_partner_id and self.partner_id.commercial_partner_id.name
+            check_owner_name = self.partner_id.commercial_partner_id.name or self.partner_id.name
         self.check_owner_name = check_owner_name
 
     @api.onchange('partner_id', 'payment_method_code')
@@ -361,7 +361,7 @@ class AccountPayment(models.Model):
             vals['name'] = _('Receive check %s') % check.name
         elif (
                 rec.payment_method_code == 'delivered_third_check' and
-                rec.payment_type == 'transfer'):
+                rec.is_internal_transfer):
             # si el cheque es entregado en una transferencia tenemos tres
             # opciones
             # TODO we should make this method selectable for transfers
@@ -471,7 +471,7 @@ class AccountPayment(models.Model):
             vals['name'] = _('Hand check %s') % check.name
         elif (
                 rec.payment_method_code == 'issue_check' and
-                rec.payment_type == 'transfer' and
+                rec.is_internal_transfer and
                 rec.destination_journal_id.type == 'cash'):
             if cancel:
                 _logger.info('Cancel Withdrawal Check')
@@ -502,7 +502,8 @@ class AccountPayment(models.Model):
                     rec.destination_journal_id.type)))
         return vals
 
-    def post(self):
+    def action_post(self):
+        force_account_id = self._context.get('force_account_id')
         for rec in self:
             if rec.check_ids and not rec.currency_id.is_zero(
                     sum(rec.check_ids.mapped('amount')) - rec.amount):
@@ -516,39 +517,67 @@ class AccountPayment(models.Model):
                     'Para mandar a proceso de firma debe definir número '
                     'de cheque en cada línea de pago.\n'
                     '* ID del pago: %s') % rec.id)
-        res = super(AccountPayment, self).post()
-        return res
-
-    def _prepare_payment_moves(self):
-        vals = super(AccountPayment, self)._prepare_payment_moves()
-
-        force_account_id = self._context.get('force_account_id')
-        all_moves_vals = []
-        for rec in self:
-            moves_vals = super(AccountPayment, rec)._prepare_payment_moves()
-
-            # edit liquidity lines
-            # Si se esta forzando importe en moneda de cia, usamos este importe para debito/credito
             vals = rec.do_checks_operations()
             if vals:
-                moves_vals[0]['line_ids'][1][2].update(vals)
+                # if rec.payment_method_code == 'issue_check' and rec.payment_type == 'outbound':
+                rec = rec.with_context(skip_account_move_synchronization=True)
+                rec.move_id.line_ids[0].update(vals)
 
             # edit counterpart lines
             # use check payment date on debt entry also so that it can be used for NC/ND adjustaments
             if rec.check_type and rec.check_payment_date:
-                moves_vals[0]['line_ids'][0][2]['date_maturity'] = rec.check_payment_date
-            if force_account_id:
-                moves_vals[0]['line_ids'][0][2]['account_id'] = force_account_id
+                rec.move_id.line_ids[1].date_maturity = rec.check_payment_date
+            # if force_account_id:
+            #     rec.move_id.line_ids[1].account_id = force_account_id
 
             # split liquidity lines on detailed checks transfers
-            if rec.payment_type == 'transfer' and rec.payment_method_code == 'delivered_third_check' \
-               and rec.check_deposit_type == 'detailed':
-                rec._split_aml_line_per_check(moves_vals[0]['line_ids'])
-                rec._split_aml_line_per_check(moves_vals[1]['line_ids'])
+            if rec.is_internal_transfer and rec.payment_method_code == 'delivered_third_check' \
+                    and rec.check_deposit_type == 'detailed':
+                rec._split_aml_line_per_check(rec.move_id.line_ids)
+                # rec._split_aml_line_per_check(moves_vals[1]['line_ids'])
+        res = super(AccountPayment, self).action_post()
+        return res
 
-            all_moves_vals += moves_vals
+    @api.model_create_multi
+    def create(self, vals_list):
 
-        return all_moves_vals
+        force_account_id = self._context.get('force_account_id')
+
+        for vals in vals_list:
+            if force_account_id:
+                vals['destination_account_id'] = force_account_id
+        return super().create(vals_list)
+
+    # def _prepare_payment_moves(self):
+    #     vals = super(AccountPayment, self)._prepare_payment_moves()
+    #
+    #     force_account_id = self._context.get('force_account_id')
+    #     all_moves_vals = []
+    #     for rec in self:
+    #         moves_vals = super(AccountPayment, rec)._prepare_payment_moves()
+    #
+    #         # edit liquidity lines
+    #         # Si se esta forzando importe en moneda de cia, usamos este importe para debito/credito
+    #         vals = rec.do_checks_operations()
+    #         if vals:
+    #             moves_vals[0]['line_ids'][1][2].update(vals)
+    #
+    #         # edit counterpart lines
+    #         # use check payment date on debt entry also so that it can be used for NC/ND adjustaments
+    #         if rec.check_type and rec.check_payment_date:
+    #             moves_vals[0]['line_ids'][0][2]['date_maturity'] = rec.check_payment_date
+    #         if force_account_id:
+    #             moves_vals[0]['line_ids'][0][2]['account_id'] = force_account_id
+    #
+    #         # split liquidity lines on detailed checks transfers
+    #         if rec.is_internal_transfer and rec.payment_method_code == 'delivered_third_check' \
+    #            and rec.check_deposit_type == 'detailed':
+    #             rec._split_aml_line_per_check(moves_vals[0]['line_ids'])
+    #             rec._split_aml_line_per_check(moves_vals[1]['line_ids'])
+    #
+    #         all_moves_vals += moves_vals
+    #
+    #     return all_moves_vals
 
     def do_print_checks(self):
         # si cambiamos nombre de check_report tener en cuenta en sipreco
@@ -608,14 +637,14 @@ class AccountPayment(models.Model):
         """
         checks = self.check_ids
 
-        amount_field = 'credit' if line_vals[1][2]['credit'] else 'debit'
-        new_name = _('Deposit check %s') if line_vals[1][2]['credit'] else line_vals[1][2]['name'] + _(' check %s')
+        amount_field = 'credit' if line_vals[0].credit > 0 else 'debit'
+        new_name = _('Deposit check %s') if line_vals[0].credit > 0 else line_vals[0].name + _(' check %s')
 
         # if the move line has currency then we are delivering checks on a
         # different currency than company one
-        currency = line_vals[1][2]['currency_id']
+        currency = line_vals[0]['currency_id']
         currency_sign = amount_field == 'debit' and 1.0 or -1.0
-        line_vals[1][2].update({
+        line_vals[0].write({
             'name': new_name % checks[0].name,
             amount_field: checks[0].amount_company_currency,
             'date_maturity': checks[0].payment_date,
@@ -623,13 +652,13 @@ class AccountPayment(models.Model):
         })
         checks -= checks[0]
         for check in checks:
-            check_vals = line_vals[1][2].copy()
-            check_vals.update({
+            check_vals = line_vals[0].copy({
                 'name': new_name % check.name,
                 amount_field: check.amount_company_currency,
                 'date_maturity': check.payment_date,
                 'payment_id': self.id,
                 'amount_currency': currency and currency_sign * check.amount,
             })
-            line_vals.append((0, 0, check_vals))
+            # line_vals.append((0, 0, check_vals))
+            # line_vals[0].unlinck()
         return True

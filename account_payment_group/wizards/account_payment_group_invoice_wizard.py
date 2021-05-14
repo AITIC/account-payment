@@ -79,8 +79,8 @@ class AccountPaymentGroupInvoiceWizard(models.TransientModel):
             taxes = self.product_id.taxes_id
         company = self.company_id or self.env.company
         taxes = taxes.filtered(lambda r: r.company_id == company)
-        self.tax_ids = self.payment_group_id.partner_id.with_context(
-            force_company=company.id).property_account_position_id.map_tax(
+        self.tax_ids = self.payment_group_id.partner_id.with_company(company
+                                                                     ).property_account_position_id.map_tax(
                 taxes)
 
     @api.onchange('amount_untaxed', 'tax_ids')
@@ -170,7 +170,7 @@ class AccountPaymentGroupInvoiceWizard(models.TransientModel):
     def confirm(self):
         self.ensure_one()
 
-        self = self.with_context(company_id=self.company_id.id, force_company=self.company_id.id)
+        self = self.with_context(company_id=self.company_id.id).with_company(self.company_id)
         invoice_vals = self.get_invoice_vals()
         invoice_vals['invoice_line_ids'] = [(0, 0, {
             'product_id': self.product_id.id,

@@ -479,7 +479,7 @@ class AccountCheck(models.Model):
         if self.state in ['handed']:
             payment_values = self.get_payment_values(self.journal_id)
             payment = self.env['account.payment'].with_context(
-                default_name=_('Check "%s" debit') % (self.name),
+                default_ref=_('Check "%s" debit') % (self.name),
                 force_account_id=self.company_id._get_check_account(
                     'deferred').id,
             ).create(payment_values)
@@ -541,15 +541,17 @@ class AccountCheck(models.Model):
         # hacemos esa verificación
         account = self.env['account.account']
         for rec in self:
-            credit_account = rec.journal_id.default_credit_account_id
-            debit_account = rec.journal_id.default_debit_account_id
+            # credit_account = rec.journal_id.default_account_id
+            # debit_account = rec.journal_id.default_account_id
+            credit_account = rec.journal_id.payment_credit_account_id
+            debit_account = rec.journal_id.payment_debit_account_id
             inbound_methods = rec.journal_id['inbound_payment_method_ids']
             outbound_methods = rec.journal_id['outbound_payment_method_ids']
             # si hay cuenta en diario y son iguales, y si los metodos de pago
             # y cobro son solamente uno, usamos el del diario, si no, usamos el
             # de la compañía
-            if credit_account and credit_account == debit_account and len(
-                    inbound_methods) == 1 and len(outbound_methods) == 1:
+            # if credit_account and credit_account == debit_account and len(
+            if credit_account and len(inbound_methods) == 1 and len(outbound_methods) == 1:
                 account |= credit_account
             else:
                 account |= rec.company_id._get_check_account('holding')
@@ -617,7 +619,7 @@ class AccountCheck(models.Model):
                 self.get_third_check_account())
 
     @api.model
-    def get_payment_values(self, journal):
+    def get_payment_values(self, journal, type='outbound'):
         """ return dictionary with the values to create the reject check
         payment record.
         We create an outbound payment instead of a transfer because:
@@ -630,8 +632,8 @@ class AccountCheck(models.Model):
             'amount': self.amount,
             'currency_id': self.currency_id.id,
             'journal_id': journal.id,
-            'payment_date': action_date,
-            'payment_type': 'outbound',
+            'date': action_date,
+            'payment_type': type,
             'payment_method_id':
             self.env.ref('account.account_payment_method_manual_out').id,
             # 'check_ids': [(4, self.id, False)],
@@ -659,7 +661,7 @@ class AccountCheck(models.Model):
         if self.state in ['deposited', 'selled']:
             operation = self._get_operation(self.state)
             if operation.origin._name == 'account.payment':
-                journal = operation.origin.destination_journal_id
+                journal = self.destination_journal_id
             # for compatibility with migration from v8
             elif operation.origin._name == 'account.move':
                 journal = operation.origin.journal_id
@@ -669,7 +671,7 @@ class AccountCheck(models.Model):
                     'If you want to reject you need to do it manually.'))
             payment_vals = self.get_payment_values(journal)
             payment = self.env['account.payment'].with_context(
-                default_name=_('Check "%s" rejection') % (self.name),
+                default_ref=_('Check "%s" rejection') % (self.name),
                 force_account_id=self.company_id._get_check_account(
                     'rejected').id,
             ).create(payment_vals)
@@ -742,8 +744,8 @@ class AccountCheck(models.Model):
             inv_vals['currency_id'] = self.currency_id.id
         # we send internal_type for compatibility with account_document
         invoice = self.env['account.move'].with_context(
-            company_id=journal.company_id.id, force_company=journal.company_id.id,
-            internal_type='debit_note').create(inv_vals)
+            company_id=journal.company_id.id,
+            internal_type='debit_note').with_company(journal.company_id).create(inv_vals)
         self._add_operation(operation, invoice, partner, date=action_date)
 
         return {

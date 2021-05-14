@@ -71,6 +71,5 @@ class AccountChartTemplate(models.Model):
                 (4, delivered_third_check.id, None)],
         })
 
-        self.env['account.journal'].with_context(
-            force_company_id=company.id)._enable_issue_check_on_bank_journals()
+        self.env['account.journal'].with_company(company)._enable_issue_check_on_bank_journals()
         return res

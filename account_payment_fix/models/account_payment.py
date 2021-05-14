@@ -115,7 +115,7 @@ class AccountPayment(models.Model):
     @api.depends('payment_type', 'journal_id')
     def _compute_payment_methods(self):
         for rec in self:
-            if rec.payment_type in ('outbound', 'transfer'):
+            if rec.payment_type in ('outbound') or rec.is_internal_transfer:
                 methods = rec.journal_id.outbound_payment_method_ids
             else:
                 methods = rec.journal_id.inbound_payment_method_ids
@@ -196,7 +196,7 @@ class AccountPayment(models.Model):
                 self.journal_id.outbound_payment_method_ids)
             # si es una transferencia y no hay payment method de origen,
             # forzamos manual
-            if not payment_methods and self.payment_type == 'transfer':
+            if not payment_methods and self.is_internal_transfer:
                 payment_methods = self.env.ref(
                     'account.account_payment_method_manual_out')
             self.payment_method_id = (
@@ -226,9 +226,8 @@ class AccountPayment(models.Model):
         """
         res = super(AccountPayment, self)._compute_destination_account_id()
         for rec in self.filtered(
-                lambda x: x.payment_type != 'transfer'):
-            partner = self.partner_id.with_context(
-                force_company=self.company_id.id)
+                lambda x: not x.is_internal_transfer):
+            partner = self.partner_id.with_company(self.company_id)
             if self.partner_type == 'customer':
                 self.destination_account_id = (
                     partner.property_account_receivable_id.id)
