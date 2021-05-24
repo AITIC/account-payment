@@ -662,3 +662,14 @@ class AccountPayment(models.Model):
             # line_vals.append((0, 0, check_vals))
             # line_vals[0].unlinck()
         return True
+
+    def _seek_for_lines(self):
+        self.ensure_one()
+
+        liquidity_lines, counterpart_lines, writeoff_lines = super(AccountPayment, self)._seek_for_lines()
+        account_id = self.company_id._get_check_account('deferred')
+        if self.payment_method_code == 'issue_check' and account_id:
+            for line in self.move_id.line_ids:
+                if line.account_id == account_id:
+                    liquidity_lines += line
+        return liquidity_lines, counterpart_lines, writeoff_lines
