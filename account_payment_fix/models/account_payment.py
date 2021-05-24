@@ -89,6 +89,13 @@ class AccountPayment(models.Model):
     #         else:
     #             journal_at_least_type = 'at_least_one_outbound'
     #         rec.journal_at_least_type = journal_at_least_type
+    @api.depends('partner_id', 'destination_account_id', 'journal_id')
+    def _compute_is_internal_transfer(self):
+        for payment in self:
+            payment._compute_partner_id()
+            is_partner_ok = payment.partner_id == payment.journal_id.company_id.partner_id
+            is_account_ok = payment.destination_account_id and payment.destination_account_id == payment.journal_id.company_id.transfer_account_id
+            payment.is_internal_transfer = is_partner_ok and is_account_ok
 
     def get_journals_domain(self):
         """
@@ -145,7 +152,8 @@ class AccountPayment(models.Model):
             self.partner_type = False
         # limpiamos journal ya que podria no estar disponible para la nueva
         # operacion y ademas para que se limpien los payment methods
-        self.journal_id = False
+        if not self.is_internal_transfer:
+            self.journal_id = False
         # # Set payment method domain
         # res = self._onchange_journal()
         # if not res.get('domain', {}):

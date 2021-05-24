@@ -18,5 +18,7 @@ class AccountJournal(models.Model):
                 'default_is_internal_transfer': True,
             })
             action['domain'] = [('is_internal_transfer', '=', True)]
+            if mode == 'form':
+                action['views'] = [[False, 'form']]
             return action
         return super(AccountJournal, self).open_payments_action(payment_type, mode=mode)
