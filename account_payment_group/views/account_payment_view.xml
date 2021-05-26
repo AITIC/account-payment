@@ -107,7 +107,7 @@
 
             <field name="payment_type" position="attributes">
                 <!-- comes from payment_group and from context on transfers -->
-                <attribute name="invisible">1</attribute>
+                <attribute name="attrs">{'invisible': [('is_internal_transfer', '!=', True)]}</attribute>
             </field>
 
             <field name="partner_type" position="attributes">
