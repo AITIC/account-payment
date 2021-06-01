@@ -70,4 +70,15 @@
     </field>
 </record>
 
+<record id="view_invoice_tree" model="ir.ui.view">
+    <field name="name">account.invoice.tree</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_invoice_tree"/>
+    <field name="arch" type="xml">
+        <button name="action_register_payment" position="attributes">
+            <attribute name="name">action_account_invoice_payment_group</attribute>
+        </button>
+    </field>
+</record>
+
 </odoo>

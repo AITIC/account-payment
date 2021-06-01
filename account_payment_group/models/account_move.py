@@ -55,8 +55,8 @@ class AccountMove(models.Model):
                     'payable', 'receivable'))
 
     def action_account_invoice_payment_group(self):
-        self.ensure_one()
-        if self.state != 'posted' or self.payment_state not in ['not_paid', 'partial']:
+        if self.filtered(lambda x: x.state != 'posted') or \
+                self.filtered(lambda x: x.payment_state not in ['not_paid', 'partial']):
             raise ValidationError(_('You can only register payment if invoice is posted and unpaid'))
         return {
             'name': _('Register Payment'),
@@ -71,14 +71,14 @@ class AccountMove(models.Model):
                 # con el default de payment group, preferimos mandar por aca
                 # ya que puede ser un contacto y no el commercial partner (y
                 # en los apuntes solo hay commercial partner)
-                'default_partner_id': self.partner_id.id,
-                'to_pay_move_line_ids': self.open_move_line_ids.ids,
+                # 'default_partner_id': self[0].partner_id.id,
+                'to_pay_move_line_ids': self.mapped('open_move_line_ids').ids,
                 'pop_up': True,
                 # We set this because if became from other view and in the
                 # context has 'create=False' you can't crate payment lines
                 #  (for ej: subscription)
                 'create': True,
-                'default_company_id': self.company_id.id,
+                # 'default_company_id': self[0].company_id.id,
             },
         }
 

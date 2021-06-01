@@ -263,7 +263,7 @@ msgstr "Nombre del Propietario del Cheque"
 #. module: account_check
 #: model:ir.model.fields,field_description:account_check.field_account_payment__check_owner_vat
 msgid "Check Owner Vat"
-msgstr "CUIT del propietario del cheque"
+msgstr "NIF del propietario del cheque"
 
 #. module: account_check
 #: model:ir.model.fields,field_description:account_check.field_account_payment__check_payment_date
@@ -1006,7 +1006,7 @@ msgstr "Nombre del Propietario"
 #. module: account_check
 #: model:ir.model.fields,field_description:account_check.field_account_check__owner_vat
 msgid "Owner Vat"
-msgstr "CUIT del Propietario"
+msgstr "NIF del Propietario"
 
 #. module: account_check
 #: code:addons/account_check/models/account_payment.py:0
