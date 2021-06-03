@@ -47,4 +47,14 @@
         </field>
     </record>
 
+    <report
+        string="Receipt / Payment Order"
+        id="account_payment_group_document.action_report_payment_group"
+        model="account.payment.group"
+        report_type="qweb-pdf"
+        name="account_payment_group.report_payment_group"
+        file="account_payment_group.report_payment_group"
+        print_report_name="(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo') + ' ' + object.document_number"
+    />
+
 </odoo>
