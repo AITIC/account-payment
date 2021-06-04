@@ -311,7 +311,7 @@ class AccountPayment(models.Model):
                 'partner_id': vals.get('partner_id'),
                 'payment_date': vals.get(
                     'date', fields.Date.context_today(self)),
-                'communication': vals.get('communication'),
+                'communication': vals.get('ref'),
             })
             vals['payment_group_id'] = payment_group.id
         payment = super(AccountPayment, self).create(vals)

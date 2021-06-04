@@ -97,7 +97,7 @@ class AccountMove(models.Model):
                 # cuenta, es mas claro mandarlo y podria evitar error si
                 # estamos usando cuentas cruzadas (payable, receivable) con
                 # tipo de factura
-                if rec.type in ['in_invoice', 'in_refund']:
+                if rec.move_type in ['in_invoice', 'in_refund']:
                     partner_type = 'supplier'
                 else:
                     partner_type = 'customer'
@@ -145,10 +145,10 @@ class AccountMove(models.Model):
                     'amount': abs(payment_group.payment_difference),
                     'journal_id': pay_journal.id,
                     'payment_method_id': payment_method.id,
-                    'payment_date': rec.invoice_date,
+                    'date': rec.invoice_date,
                 })
                 # if validate_payment:
-                payment_group.post()
+                payment_group.action_post()
 
     def action_view_payment_groups(self):
         if self.type in ('in_invoice', 'in_refund'):
