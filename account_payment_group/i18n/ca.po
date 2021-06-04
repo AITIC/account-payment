@@ -81,8 +81,7 @@ msgstr ""
 #. module: account_payment_group
 #: model:ir.actions.report,print_report_name:account_payment_group.action_report_payment_group
 msgid ""
-"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo') + ' ' + "
-"object.document_number"
+"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo')"
 msgstr ""
 
 #. module: account_payment_group

@@ -127,11 +127,9 @@ msgstr "${object.company_id.name|safe} Recibo ${object.display_name or 'n/a'}"
 #. module: account_payment_group
 #: model:ir.actions.report,print_report_name:account_payment_group.action_report_payment_group
 msgid ""
-"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo') + ' ' + "
-"object.document_number"
+"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo')"
 msgstr ""
-"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo') + ' ' + "
-"object.document_number"
+"(object.partner_type == 'supplier' and 'Orden de pago' or 'Recibo')"
 
 #. module: account_payment_group
 #: model_terms:ir.ui.view,arch_db:account_payment_group.view_account_payment_form
