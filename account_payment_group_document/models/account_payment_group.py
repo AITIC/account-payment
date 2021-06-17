@@ -123,7 +123,7 @@ class AccountPaymentGroup(models.Model):
             ], limit=1)
         return receiptbook
 
-    def post(self):
+    def action_post(self):
         for rec in self:
             if not rec.document_number:
                 if rec.receiptbook_id and not rec.receiptbook_id.sequence_id:
@@ -136,14 +136,14 @@ class AccountPaymentGroup(models.Model):
                         rec.receiptbook_id.with_context(
                             ir_sequence_date=rec.payment_date
                         ).sequence_id.next_by_id())
-            rec.payment_ids.move_name = rec.name
+            # rec.payment_ids.move_name = rec.name
 
             # hacemos el llamado acá y no arriba para primero hacer los checks
             # y ademas primero limpiar o copiar talonario antes de postear.
             # lo hacemos antes de mandar email asi sale correctamente numerado
             # necesitamos realmente mandar el tipo de documento? lo necesitamos para algo?
             super(AccountPaymentGroup, self.with_context(
-                default_l10n_latam_document_type_id=rec.document_type_id.id)).post()
+                default_l10n_latam_document_type_id=rec.document_type_id.id)).action_post()
             if not rec.receiptbook_id:
                 rec.name = any(
                     rec.payment_ids.mapped('name')) and ', '.join(
