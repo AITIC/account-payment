@@ -8,7 +8,8 @@ class AccountTaxTemplate(models.Model):
         selection_add=[
             ('customer', 'Customer Payment'),
             ('supplier', 'Supplier Payment'),
-        ],
+        ], ondelete={'customer': lambda r: r.write({'type_tax_use': 'sale'}),
+                     'supplier': lambda r: r.write({'type_tax_use': 'purchase'})}
     )
 
 
@@ -22,7 +23,8 @@ class AccountTax(models.Model):
         selection_add=[
             ('customer', 'Customer Payment'),
             ('supplier', 'Supplier Payment'),
-        ],
+        ], ondelete={'customer': lambda r: r.write({'type_tax_use': 'sale'}),
+                     'supplier': lambda r: r.write({'type_tax_use': 'purchase'})}
     )
     amount = fields.Float(
         default=0.0,

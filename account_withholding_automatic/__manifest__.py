@@ -27,6 +27,7 @@
         'views/account_tax_view.xml',
         'views/account_payment_group_view.xml',
         'views/account_payment_view.xml',
+        'views/account_journal_view.xml',
         'security/ir.model.access.csv',
     ],
     'demo': [
