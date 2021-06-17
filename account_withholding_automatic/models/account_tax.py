@@ -200,6 +200,7 @@ result = withholdable_base_amount * 0.10
                 vals['payment_type'] = 'outbound'
                 vals['partner_type'] = payment_group.partner_type
                 vals['partner_id'] = payment_group.partner_id.id
+                vals['currency_id'] = payment_group.currency_id.id
                 payment_withholding = payment_withholding.create(vals)
         return True
 
