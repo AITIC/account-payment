@@ -27,7 +27,7 @@ class AccountPayment(models.Model):
         states={'draft': [('readonly', False)]},
     )
 
-    def post(self):
+    def action_post(self):
         without_number = self.filtered(
             lambda x: x.tax_withholding_id and not x.withholding_number)
 
@@ -44,8 +44,13 @@ class AccountPayment(models.Model):
         for payment in (without_number - without_sequence):
             payment.withholding_number = \
                 payment.tax_withholding_id.withholding_sequence_id.next_by_id()
-
-        return super(AccountPayment, self).post()
+        for rec in self:
+            vals = rec._get_withholding_line_vals()
+            if vals:
+                # if rec.payment_method_code == 'issue_check' and rec.payment_type == 'outbound':
+                rec = rec.with_context(skip_account_move_synchronization=True)
+                rec.move_id.line_ids[0].update(vals)
+        return super(AccountPayment, self).action_post()
 
     def _prepare_payment_moves(self):
         all_moves_vals = []
