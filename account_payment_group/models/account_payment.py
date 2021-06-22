@@ -309,8 +309,7 @@ class AccountPayment(models.Model):
                 'company_id': company_id,
                 'partner_type': vals.get('partner_type'),
                 'partner_id': vals.get('partner_id'),
-                'payment_date': vals.get(
-                    'date', fields.Date.context_today(self)),
+                'payment_date': vals.get('date', fields.Date.context_today(self)),
                 'communication': vals.get('ref'),
             })
             vals['payment_group_id'] = payment_group.id
