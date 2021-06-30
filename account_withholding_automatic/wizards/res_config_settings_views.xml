@@ -5,11 +5,11 @@
         <record id="res_config_settings_view_form" model="ir.ui.view">
             <field name="name">res.config.settings.form.inherit.account.payment.group</field>
             <field name="model">res.config.settings</field>
-            <field name="inherit_id" ref="account_payment_group.res_config_settings_view_form"/>
+            <field name="inherit_id" ref="account_payment_group.res_config_settings_view_form_inh"/>
             <field name="arch" type="xml">
 
                 <!-- supplier payments section -->
-                <div name="double_validation" position="after">
+                <xpath expr="//div[@name='double_validation']" position="after">
                     <div class="col-xs-12 col-md-6 o_setting_box" attrs="{'invisible': [('double_validation', '=', False)]}">
                         <div class="o_setting_left_pane">
                             <field name="automatic_withholdings" widget="upgrade_boolean"/>
@@ -22,7 +22,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </xpath>
 
             </field>
         </record>
