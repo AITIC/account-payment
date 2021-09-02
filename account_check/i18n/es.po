@@ -1289,6 +1289,7 @@ msgstr ""
 
 #. module: account_check
 #: code:addons/account_check/models/account_check.py:0
+#: code:addons/account_check/models/account_check.py:0
 #, python-format
 msgid ""
 "The deposit operation is not linked to a payment.If you want to reject you "
