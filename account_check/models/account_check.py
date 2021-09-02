@@ -658,6 +658,10 @@ class AccountCheck(models.Model):
         self.ensure_one()
         if self.state in ['deposited', 'selled']:
             operation = self._get_operation(self.state)
+            if not operation:
+                raise ValidationError(_(
+                    'The deposit operation is not linked to a payment.'
+                    'If you want to reject you need to do it manually.'))
             if operation.origin._name == 'account.payment':
                 journal = operation.origin.destination_journal_id
             # for compatibility with migration from v8
