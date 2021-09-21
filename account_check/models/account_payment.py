@@ -232,7 +232,7 @@ class AccountPayment(models.Model):
             [('check_owner_vat', '=', self.check_owner_vat)],
             limit=1).check_owner_name
         if not check_owner_name:
-            check_owner_name = self.partner_id.commercial_partner_id and self.partner_id.commercial_partner_id.name
+            check_owner_name = self.partner_id.commercial_partner_id and self.partner_id.commercial_partner_id.name or ''
         self.check_owner_name = check_owner_name
 
     @api.onchange('partner_id', 'payment_method_code')
