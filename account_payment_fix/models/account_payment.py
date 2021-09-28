@@ -190,6 +190,7 @@ class AccountPayment(models.Model):
             # si se eligió de origen el mismo diario de destino, lo resetiamos
             if self.journal_id == self.destination_journal_id:
                 self.destination_journal_id = False
+            super()._onchange_journal()
         #     # Set payment method domain
         #     # (restrict to methods enabled for the journal and to selected
         #     # payment type)
