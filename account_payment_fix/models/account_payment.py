@@ -243,3 +243,70 @@ class AccountPayment(models.Model):
                 self.destination_account_id = (
                     partner.property_account_payable_id.id)
         return res
+
+    def _synchronize_to_moves(self, changed_fields):
+        #Se modifican las lineas 294 y 296 del metodo original ya que causa conflictos con Grupo de Pago.
+        if self._context.get('skip_account_move_synchronization'):
+            return
+
+        if not any(field_name in changed_fields for field_name in (
+                'date', 'amount', 'payment_type', 'partner_type', 'payment_reference', 'is_internal_transfer',
+                'currency_id', 'partner_id', 'destination_account_id', 'partner_bank_id', 'journal_id',
+        )):
+            return
+
+        for pay in self.with_context(skip_account_move_synchronization=True):
+            liquidity_lines, counterpart_lines, writeoff_lines = pay._seek_for_lines()
+
+            # Make sure to preserve the write-off amount.
+            # This allows to create a new payment with custom 'line_ids'.
+
+            if liquidity_lines and counterpart_lines and writeoff_lines:
+
+                counterpart_amount = sum(counterpart_lines.mapped('amount_currency'))
+                writeoff_amount = sum(writeoff_lines.mapped('amount_currency'))
+
+                # To be consistent with the payment_difference made in account.payment.register,
+                # 'writeoff_amount' needs to be signed regarding the 'amount' field before the write.
+                # Since the write is already done at this point, we need to base the computation on accounting values.
+                if (counterpart_amount > 0.0) == (writeoff_amount > 0.0):
+                    sign = -1
+                else:
+                    sign = 1
+                writeoff_amount = abs(writeoff_amount) * sign
+
+                write_off_line_vals = {
+                    'name': writeoff_lines[0].name,
+                    'amount': writeoff_amount,
+                    'account_id': writeoff_lines[0].account_id.id,
+                }
+            else:
+                write_off_line_vals = {}
+
+            line_vals_list = pay._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals)
+
+            line_ids_commands = []
+            if liquidity_lines:
+                line_ids_commands.append((1, liquidity_lines.id, line_vals_list[0]))
+            else:
+                line_ids_commands.append((1, 0, line_vals_list[0]))
+            if counterpart_lines:
+                line_ids_commands.append((1, counterpart_lines.id, line_vals_list[1]))
+            else:
+                line_ids_commands.append((1, 0, line_vals_list[1]))
+
+            for line in writeoff_lines:
+                line_ids_commands.append((2, line.id))
+
+            for extra_line_vals in line_vals_list[2:]:
+                line_ids_commands.append((0, 0, extra_line_vals))
+
+            # Update the existing journal items.
+            # If dealing with multiple write-off lines, they are dropped and a new one is generated.
+
+            pay.move_id.write({
+                'partner_id': pay.partner_id.id,
+                'currency_id': pay.currency_id.id,
+                'partner_bank_id': pay.partner_bank_id.id,
+                'line_ids': line_ids_commands,
+            })
