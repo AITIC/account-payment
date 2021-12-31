@@ -317,7 +317,7 @@ class AccountPayment(models.Model):
         check = self.env['account.check'].create(check_vals)
         self.check_ids = [(4, check.id, False)]
         check._add_operation(
-            operation, self, self.partner_id, date=self.payment_date)
+            operation, self, self.partner_id, date=self.date)
         return check
 
     def do_checks_operations(self, cancel=False):
@@ -386,9 +386,9 @@ class AccountPayment(models.Model):
                 # get the account before changing the journal on the check
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 rec.check_ids._add_operation(
-                    'transfered', rec, False, date=rec.payment_date)
+                    'transfered', rec, False, date=rec.date)
                 rec.check_ids._add_operation(
-                    'holding', rec, False, date=rec.payment_date)
+                    'holding', rec, False, date=rec.date)
                 rec.check_ids.write({
                     'journal_id': rec.destination_journal_id.id})
                 vals['name'] = _('Transfer checks %s') % ', '.join(
@@ -401,7 +401,7 @@ class AccountPayment(models.Model):
 
                 _logger.info('Sell Check')
                 rec.check_ids._add_operation(
-                    'selled', rec, False, date=rec.payment_date)
+                    'selled', rec, False, date=rec.date)
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 vals['name'] = _('Sell check %s') % ', '.join(
                     rec.check_ids.mapped('name'))
@@ -414,7 +414,7 @@ class AccountPayment(models.Model):
 
                 _logger.info('Deposit Check')
                 rec.check_ids._add_operation(
-                    'deposited', rec, False, date=rec.payment_date)
+                    'deposited', rec, False, date=rec.date)
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 vals['name'] = _('Deposit checks %s') % ', '.join(
                     rec.check_ids.mapped('name'))
@@ -437,7 +437,7 @@ class AccountPayment(models.Model):
             if len(rec.check_ids) == 1 and rec.check_ids.payment_date:
                 vals['date_maturity'] = rec.check_ids.payment_date
             rec.check_ids._add_operation(
-                'delivered', rec, rec.partner_id, date=rec.payment_date)
+                'delivered', rec, rec.partner_id, date=rec.date)
             vals['account_id'] = rec.check_ids.get_third_check_account().id
             vals['name'] = _('Deliver checks %s') % ', '.join(
                 rec.check_ids.mapped('name'))
