@@ -158,7 +158,7 @@ class AccountMove(models.Model):
             action = self.env.ref(
                 'account_payment_group.action_account_payments_group')
 
-        result = action.read()[0]
+        result = action.sudo().read()[0]
 
         if len(self.payment_group_ids) != 1:
             result['domain'] = [('id', 'in', self.payment_group_ids.ids)]
