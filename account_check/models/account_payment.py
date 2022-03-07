@@ -317,7 +317,7 @@ class AccountPayment(models.Model):
         check = self.env['account.check'].create(check_vals)
         self.check_ids = [(4, check.id, False)]
         check._add_operation(
-            operation, self, self.partner_id, date=self.payment_date)
+            operation, self, self.partner_id, date=self.date )
         return check
 
     def do_checks_operations(self, cancel=False):
@@ -366,7 +366,7 @@ class AccountPayment(models.Model):
             # opciones
             # TODO we should make this method selectable for transfers
             inbound_method = (
-                rec.destination_journal_id.inbound_payment_method_ids)
+                rec.destination_journal_id.inbound_payment_method_line_ids)
             # si un solo inbound method y es received third check
             # entonces consideramos que se esta moviendo el cheque de un diario
             # al otro

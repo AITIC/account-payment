@@ -40,7 +40,7 @@
         'data/ir_actions_server_data.xml',
         'wizard/account_check_action_wizard_view.xml',
         'wizard/print_pre_numbered_checks_view.xml',
-        'wizard/res_config_settings_view.xml',
+        'views/res_config_settings_view.xml',
         'views/account_payment_view.xml',
         'views/account_check_view.xml',
         'views/account_journal_dashboard_view.xml',

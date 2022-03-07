@@ -22,7 +22,7 @@ class AccountJournal(models.Model):
         rec = super(AccountJournal, self).create(vals)
         issue_checks = self.env.ref(
             'account_check.account_payment_method_issue_check')
-        if (issue_checks in rec.outbound_payment_method_ids and
+        if (issue_checks in rec.outbound_payment_method_line_ids and
                 not rec.checkbook_ids):
             rec._create_checkbook()
         return rec
@@ -51,7 +51,7 @@ class AccountJournal(models.Model):
             if not bank_journal.checkbook_ids:
                 bank_journal._create_checkbook()
             bank_journal.write({
-                'outbound_payment_method_ids': [(4, issue_checks.id, None)],
+                'outbound_payment_method_line_ids': [(4, issue_checks.id, None)],
             })
 
 ###############

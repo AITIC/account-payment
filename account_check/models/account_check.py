@@ -541,10 +541,10 @@ class AccountCheck(models.Model):
         # hacemos esa verificación
         account = self.env['account.account']
         for rec in self:
-            credit_account = rec.journal_id.payment_credit_account_id
-            debit_account = rec.journal_id.payment_debit_account_id
-            inbound_methods = rec.journal_id['inbound_payment_method_ids']
-            outbound_methods = rec.journal_id['outbound_payment_method_ids']
+            credit_account = rec.journal_id.loss_account_id
+            debit_account = rec.journal_id.profit_account_id
+            inbound_methods = rec.journal_id['inbound_payment_method_line_ids']
+            outbound_methods = rec.journal_id['outbound_payment_method_line_ids']
             # si hay cuenta en diario y son iguales, y si los metodos de pago
             # y cobro son solamente uno, usamos el del diario, si no, usamos el
             # de la compañía
@@ -735,7 +735,7 @@ class AccountCheck(models.Model):
             # this is done on muticompany fix
             # 'company_id': journal.company_id.id,
             'partner_id': partner.id,
-            'type': invoice_type,
+            'move_type': invoice_type,
             'invoice_line_ids': [(0, 0, inv_line_vals)],
         }
         if self.currency_id:
