@@ -30,9 +30,11 @@ class ResCompany(models.Model):
 
     def _get_check_account(self, check_type):
         self.ensure_one()
-        if check_type == 'holding':
-            account = self.holding_check_account_id
-        elif check_type == 'rejected':
+        # TODO:
+        #if check_type == 'holding':
+        #    account = self.holding_check_account_id
+        #elif check_type == 'rejected':
+        if check_type == 'rejected':
             account = self.rejected_check_account_id
         elif check_type == 'deferred':
             account = self.deferred_check_account_id
