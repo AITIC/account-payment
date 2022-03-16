@@ -413,10 +413,18 @@ class AccountPaymentGroup(models.Model):
     @api.depends('to_pay_amount', 'payments_amount')
     def _compute_payment_difference(self):
         for rec in self:
+            rec.payment_difference=0
             # if rec.payment_subtype != 'double_validation':
             #     continue
-            rec.payment_difference = rec.to_pay_amount - rec.payments_amount
 
+            if rec.to_pay_amount > 0:
+                rec.payment_difference = rec.to_pay_amount - rec.payments_amount
+
+
+            
+            
+
+       
     @api.depends('payment_ids.signed_amount_company_currency')
     def _compute_payments_amount(self):
         for rec in self:
