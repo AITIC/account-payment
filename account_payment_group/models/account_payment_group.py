@@ -452,7 +452,7 @@ class AccountPaymentGroup(models.Model):
             selected_debt = 0.0
             selected_debt_untaxed = 0.0
             for line in rec.to_pay_move_line_ids._origin:
-                selected_finacial_debt += line.with_context(payment_date=self.payment_date).financial_amount_residual
+                selected_finacial_debt += line.with_context(payment_date=rec.payment_date).financial_amount_residual
                 selected_debt += line.amount_residual
                 # factor for total_untaxed
                 invoice = line.move_id
