@@ -209,6 +209,7 @@ class AccountPayment(models.Model):
                     'account.account_payment_method_manual_out')
             self.payment_method_id = (
                 payment_methods and payment_methods[0] or False)
+            self.move_id._onchange_journal()
             # En version 14 no exite el campo destination_journal_id
             # si se eligió de origen el mismo diario de destino, lo resetiamos
             # if self.journal_id == self.destination_journal_id:
