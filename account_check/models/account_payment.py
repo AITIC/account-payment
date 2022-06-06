@@ -531,9 +531,9 @@ class AccountPayment(models.Model):
             #     rec.move_id.line_ids[1].account_id = force_account_id
 
             # split liquidity lines on detailed checks transfers
-            if rec.is_internal_transfer and rec.payment_method_code == 'delivered_third_check' \
-                    and rec.check_deposit_type == 'detailed':
-                rec._split_aml_line_per_check(rec.move_id.line_ids)
+            #if rec.is_internal_transfer and rec.payment_method_code == 'delivered_third_check' \
+            #        and rec.check_deposit_type == 'detailed':
+                #rec._split_aml_line_per_check(rec.move_id.line_ids)
                 # rec._split_aml_line_per_check(moves_vals[1]['line_ids'])
         res = super(AccountPayment, self).action_post()
         return res
