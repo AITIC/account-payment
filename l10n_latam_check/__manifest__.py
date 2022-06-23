@@ -1,38 +1,52 @@
-##############################################################################
-#
-#    Copyright (C) 2015  ADHOC SA  (http://www.adhoc.com.ar)
-#    All Rights Reserved.
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Affero General Public License as
-#    published by the Free Software Foundation, either version 3 of the
-#    License, or (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU Affero General Public License for more details.
-#
-#    You should have received a copy of the GNU Affero General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-##############################################################################
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'Account Check Management',
-    'version': "1.1.0",
-    'category': 'Accounting',
+    'version': "1.0.0",
+    'category': 'Accounting/Localizations',
     'summary': 'Checks Management',
     'description': """
-Extends 'Check Printing Base' module to:
+Own Checks Management
+---------------------
+
+Extends 'Check Printing Base' module to manage own checks with more features:
 * allow using own checks that are not printed but filled manually by the user
 * allow to use checkbooks to track numbering
-* add an optional "payment date" for postdated checks
+* allow to use different checkbooks type (deferred, electronic, current)
+* add an optional "payment date" for post-dated checks (deferred payments)
 * add a menu to track own checks
+* two modifications are done when using when using checkbooks:
 
-Also implement third checks management
+    * the next number of the check is suggested but editable by the user. This is needed for electronic checks where
+    the next number is given by the bank and also when using pre-printed checkbooks where it's really common that the
+    order of filling checks is not the same as the one used on posting checks in odoo
+    * the printing functionality is disabled because there is not standard format and a report for each bank should be
+    implemented. It's a nice to have that could be implemented by customization if needed
+
+
+
+Third party check Management
+----------------------
+
+Add new "Third party check Management" feature.
+
+There are 2 main Payment Methods additions:
+
+* New Third party checks:
+
+   * allow the user create a check on the fly from a payment
+   * create a third party check from a customer payment
+
+* Third party check:
+
+   * allow the user to reuse a Third party check already created
+   * pay a vendor bill using an existing Third party check
+   * move an existing checks between journals (i.e. move to Rejected)
+   * Send/Receive again a check already used in a Vendor Bill/Customer INV
+   * allow the user to do mass check transfers
+
 """,
     'author': 'ADHOC SA',
-    'license': 'AGPL-3',
+    'license': 'LGPL-3',
     'images': [
     ],
     'depends': [
@@ -46,10 +60,6 @@ Also implement third checks management
         'views/account_journal_view.xml',
         'wizards/account_payment_register_views.xml',
         'wizards/account_payment_mass_transfer_views.xml',
-    ],
-    'demo': [
-    ],
-    'test': [
     ],
     'installable': True,
     'auto_install': False,
