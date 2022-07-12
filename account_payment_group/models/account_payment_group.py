@@ -443,7 +443,10 @@ class AccountPaymentGroup(models.Model):
                         rec.receiptbook_id.with_context(
                             ir_sequence_date=rec.payment_date
                         ).sequence_id.next_by_id())
-            rec.payment_ids.name = rec.name
+            # por ahora solo lo usamos en _get_last_sequence_domain para saber si viene de una transferencia (sin
+            # documen type) o es de un grupo de pagos. Pero mas alla de eso no tiene un gran uso, viene un poco legacy
+            # y ya está configurado en los receibooks
+            rec.payment_ids.l10n_latam_document_type_id = rec.document_type_id.id
 
             if not rec.payment_ids:
                 raise ValidationError(_(
@@ -460,6 +463,8 @@ class AccountPaymentGroup(models.Model):
             # no volvemos a postear lo que estaba posteado
             if not created_automatically:
                 rec.payment_ids.filtered(lambda x: x.state == 'draft').action_post()
+            # escribimos despues del post para que odoo no renumere el payment
+            rec.payment_ids.name = rec.name
 
             if not rec.receiptbook_id and not rec.name:
                 rec.name = any(
@@ -559,7 +564,7 @@ class AccountPaymentGroup(models.Model):
 
     @api.depends('company_id', 'partner_type')
     def _compute_receiptbook(self):
-        for rec in self.filtered(lambda x: not x.receiptbook_id):
+        for rec in self.filtered(lambda x: not x.receiptbook_id or x.receiptbook_id.company_id != x.company_id):
             partner_type = self.partner_type or self._context.get(
                 'partner_type', self._context.get('default_partner_type', False))
             receiptbook = self.env[
