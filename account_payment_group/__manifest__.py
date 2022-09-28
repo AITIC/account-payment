@@ -15,7 +15,7 @@
     },
     "depends": [
         "account_financial_amount",
-        "account_payment_fix",
+        #"account_payment_fix",
     ],
     "data": [
         'security/security.xml',
