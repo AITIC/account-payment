@@ -29,7 +29,7 @@
         'views/account_payment_group_view.xml',
         'views/account_journal_dashboard_view.xml',
         'views/report_payment_group.xml',
-        'data/decimal_precision_data.xml',
+        #'data/decimal_precision_data.xml',
         'data/l10n_latam.document.type.csv',
         'data/mail_template_data.xml',
         'data/account_payment_data.xml',
