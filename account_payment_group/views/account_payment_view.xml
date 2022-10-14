@@ -33,7 +33,9 @@
         <tree>
             <field name="name"/>
             <field name="journal_id"/>
-            <field name="payment_method_description"/>
+<!--
+            <field name="payment_method_description"/> ya que no esta account_payment_fix 
+-->
             <!-- lo agregamos para que al usar guardar y nuevo se ejecute onchange en la form y previsualice bien importe en la tree -->
             <field name="amount" invisible="1"/>
             <!-- sum de este amount no tiene sentido por que puede ser distintas monedas -->
