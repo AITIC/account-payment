@@ -384,3 +384,23 @@ class AccountPayment(models.Model):
                         vals['line_ids'] = line_ids
         res = super().write(vals)
         return res
+
+
+    @api.depends('journal_id', 'partner_id', 'partner_type')
+    def _compute_destination_account_id(self):
+        """
+        We send force_company on context so payments can be created from parent
+        companies. We try to send force_company on self but it doesnt works, it
+        only works sending it on partner
+        """
+        res = super(AccountPayment, self)._compute_destination_account_id()
+        for rec in self.filtered(
+                lambda x: not x.is_internal_transfer):
+            partner = self.partner_id.with_company(self.company_id)
+            if self.partner_type == 'customer':
+                self.destination_account_id = (
+                    partner.property_account_receivable_id.id)
+            else:
+                self.destination_account_id = (
+                    partner.property_account_payable_id.id)
+        return res
