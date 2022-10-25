@@ -155,10 +155,7 @@ class AccountCheck(models.Model):
         index=True,
     )
     issue_check_subtype = fields.Selection(
-        [('deferred', 'Deferred'), ('currents', 'Currents'), ('electronic', 'Electronic')],
-        string='Check Subtype',
-        required=True,
-        default='deferred',
+        related='checkbook_id.issue_check_subtype',
     )
     type = fields.Selection(
         [('issue_check', 'Issue Check'), ('third_check', 'Third Check')],
@@ -296,11 +293,6 @@ class AccountCheck(models.Model):
                     rec.issue_date > rec.payment_date):
                 raise UserError(
                     _('Check Payment Date must be greater than Issue Date'))
-
-    @api.onchange('checkbook_id')
-    def onchange_checkbook_id(self):
-        for rec in self:
-            rec.issue_check_subtype = rec.checkbook_id.issue_check_subtype
 
     @api.constrains(
         'type',
@@ -456,14 +448,6 @@ class AccountCheck(models.Model):
                     self._fields['state'].convert_to_export(old_state, self),
                     self.name,
                     self.id))
-
-    @api.model
-    def create(self, vals):
-        type = vals.get('type', False) or self._context.get('default_type', False)
-        if vals.get('journal_id', False) and type and type == 'issue_check' and not vals.get('bank_id', False):
-            journal_id = self.env['account.journal'].browse(vals['journal_id'])
-            vals['bank_id'] = journal_id.bank_id.id if journal_id.bank_id else False
-        return super(AccountCheck, self).create(vals)
 
     def unlink(self):
         for rec in self:
