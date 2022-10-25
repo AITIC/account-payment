@@ -22,7 +22,6 @@
         <field name="arch" type="xml">
             <sheet position="inside">
                 <field name="check_type" invisible="1"/>
-                <field name="issue_check_subtype" invisible="1"/>
                 <!-- <field name="checkbook_block_manual_number" invisible="1"/> -->
                 <field name="checkbook_numerate_on_printing" invisible="1"/>
             </sheet>
