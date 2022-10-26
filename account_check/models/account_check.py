@@ -157,6 +157,12 @@ class AccountCheck(models.Model):
     issue_check_subtype = fields.Selection(
         related='checkbook_id.issue_check_subtype',
     )
+    issue_check_subtype = fields.Selection(
+        [('deferred', 'Deferred'), ('currents', 'Currents'), ('electronic', 'Electronic')],
+        string='Check Subtype',
+        required=True,
+        default='deferred',
+    )
     type = fields.Selection(
         [('issue_check', 'Issue Check'), ('third_check', 'Third Check')],
         readonly=True,

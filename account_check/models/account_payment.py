@@ -83,8 +83,9 @@ class AccountPayment(models.Model):
         states={'draft': [('readonly', False)]},
         auto_join=True,
     )
-    check_subtype = fields.Selection(
-        related='checkbook_id.issue_check_subtype',
+    issue_check_subtype = fields.Selection(
+        [('deferred', 'Deferred'), ('currents', 'Currents'), ('electronic', 'Electronic')],
+        string='Check Subtype'
     )
     check_bank_id = fields.Many2one(
         'res.bank',

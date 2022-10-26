@@ -22,6 +22,7 @@
         <field name="arch" type="xml">
             <sheet position="inside">
                 <field name="check_type" invisible="1"/>
+                <field name="issue_check_subtype" invisible="1"/>
                 <!-- <field name="checkbook_block_manual_number" invisible="1"/> -->
                 <field name="checkbook_numerate_on_printing" invisible="1"/>
             </sheet>
@@ -67,7 +68,7 @@
                             <field name="check_bank_id" attrs="{'invisible': [('payment_method_code', 'not in', ['received_third_check', 'issue_check'])], 'required': ['|', ('payment_method_code', '=', 'received_third_check'), '&amp;', ('payment_method_code', '=', 'issue_check'), ('checkbook_numerate_on_printing', '=', False)]}"/>
                             <field name="check_owner_vat" attrs="{'invisible': [('payment_method_code', 'not in', ['received_third_check'])],  'required': [('payment_method_code', 'in', ['received_third_check'])]}"/>
                             <field name="check_owner_name" attrs="{'invisible': [('payment_method_code', 'not in', ['received_third_check'])],  'required': [('payment_method_code', 'in', ['received_third_check'])]}"/>
-                            <!--<field name="issue_check_subtype" attrs="{'invisible': [('payment_method_code', 'not in', ['received_third_check'])],  'required': [('payment_method_code', 'in', ['received_third_check'])]}"/>-->
+                            <field name="issue_check_subtype" attrs="{'invisible': [('payment_method_code', 'not in', ['received_third_check'])],  'required': [('payment_method_code', 'in', ['received_third_check'])]}"/>
                         </group>
                     </div>
                 </group>
