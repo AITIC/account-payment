@@ -17,6 +17,18 @@ class AccountJournal(models.Model):
         auto_join=True,
     )
 
+    def _default_outbound_payment_methods(self):
+        res = super()._default_outbound_payment_methods()
+        if self.type == 'cash':
+            res += self.env.ref('account_check.account_payment_method_issue_check')
+        return res
+
+    def _default_inbound_payment_methods(self):
+        res = super()._default_inbound_payment_methods()
+        if self.type == 'cash':
+            res += self.env.ref('account_check.account_payment_method_received_third_check')
+        return res
+
     @api.model
     def create(self, vals):
         rec = super(AccountJournal, self).create(vals)
