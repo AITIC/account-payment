@@ -158,7 +158,8 @@ class AccountPayment(models.Model):
                         'You are trying to deposit checks of difference'
                         ' currencies, this functionality is not supported'))
                 elif len(currency) == 1:
-                    rec.currency_id = currency.id
+                    if not rec.currency_id or rec.currency_id != currency:
+                        rec.currency_id = currency.id
 
                 # si es una entrega de cheques de terceros y es en otra moneda
                 # a la de la cia, forzamos el importe en moneda de cia de los

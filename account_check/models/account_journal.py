@@ -64,9 +64,8 @@ class AccountJournal(models.Model):
         for bank_journal in bank_journals:
             if not bank_journal.checkbook_ids:
                 bank_journal._create_checkbook()
-            bank_journal.write({
-                'outbound_payment_method_line_ids': [(4, issue_checks.id, None)],
-            })
+            bank_journal._compute_inbound_payment_method_line_ids()
+            bank_journal._compute_outbound_payment_method_line_ids()
 
 ###############
 # For dashboard
