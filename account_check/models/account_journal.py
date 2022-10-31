@@ -21,6 +21,8 @@ class AccountJournal(models.Model):
         res = super()._default_outbound_payment_methods()
         if self.type == 'cash':
             res += self.env.ref('account_check.account_payment_method_issue_check')
+        if self.type == 'bank':
+            res += self.env.ref('account_check.account_payment_method_issue_check')
         return res
 
     def _default_inbound_payment_methods(self):
