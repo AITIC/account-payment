@@ -14,6 +14,7 @@
         "bin": [],
     },
     "depends": [
+        "account_accountant",
         "account_ux",
         "l10n_latam_invoice_document",
     ],
