@@ -518,8 +518,8 @@ class AccountPaymentGroup(models.Model):
         # https://github.com/odoo/odoo/commit/362d8cbf7724431672b8b73fb5f4682d4d2c3f66
         # igual por el momento parece ser más apropiado recomendar transferencia interna
         transfers = self.filtered(lambda x: x.company_id.partner_id == x.partner_id)
-        if transfers:
-            raise ValidationError(_("You can't make a payment/receipt to your same company, create an internal transfer instead"))
+        #if transfers:
+        #    raise ValidationError(_("You can't make a payment/receipt to your same company, create an internal transfer instead"))
 
     # from old account_payment_document_number
 
