@@ -41,7 +41,7 @@ class AccountMove(models.Model):
     def _check_unique_sequence_number(self):
         payment_group_moves = self.filtered(
             lambda x: x.journal_id.type in ['cash', 'bank'] and x.payment_id.payment_group_id)
-        return super(AccountMove, self - payment_group_moves)._check_unique_sequence_number()
+        return super(AccountMove, self)._set_next_sequence()
 
     def _compute_payment_groups(self):
         """
@@ -179,27 +179,27 @@ class AccountMove(models.Model):
         self.filtered(lambda x: x.state == 'posted' and x.pay_now_journal_id).write({'pay_now_journal_id': False})
         return super().button_draft()
 
-    # ~ def _get_last_sequence_domain(self, relaxed=False):
-        # ~ """ para transferencias no queremos que se enumere con el ultimo numero de asiento porque podria ser un
-        # ~ pago generado por un grupo de pagos y en ese caso el numero viene dado por el talonario de recibo/pago.
-        # ~ Para esto creamos campo related stored a payment_group_id de manera de que un asiento sepa si fue creado
-        # ~ o no desde unpaymetn group
-        # ~ TODO: tal vez lo mejor sea cambiar para no guardar mas numero de recibo en el asiento, pero eso es un cambio
-        # ~ gigante
-        # ~ """
-        # ~ if self.journal_id.type in ('cash', 'bank') and not self.payment_group_id:
-            # ~ # mandamos en contexto que estamos en esta condicion para poder meternos en el search que ejecuta super
-            # ~ # y que el pago de referencia que se usa para adivinar el tipo de secuencia sea un pago sin tipo de
-            # ~ # documento
-            # ~ where_string, param = super(
-                # ~ AccountMove, self.with_context(without_payment_group=True))._get_last_sequence_domain(relaxed)
-            # ~ where_string += " AND payment_group_id is Null"
-        # ~ else:
-            # ~ where_string, param = super(AccountMove, self)._get_last_sequence_domain(relaxed)
-        # ~ return where_string, param
+    def _get_last_sequence_domain(self, relaxed=False):
+        """ para transferencias no queremos que se enumere con el ultimo numero de asiento porque podria ser un
+        pago generado por un grupo de pagos y en ese caso el numero viene dado por el talonario de recibo/pago.
+        Para esto creamos campo related stored a payment_group_id de manera de que un asiento sepa si fue creado
+        o no desde unpaymetn group
+        TODO: tal vez lo mejor sea cambiar para no guardar mas numero de recibo en el asiento, pero eso es un cambio
+        gigante
+        """
+        if self.journal_id.type in ('cash', 'bank') and not self.payment_group_id:
+            # mandamos en contexto que estamos en esta condicion para poder meternos en el search que ejecuta super
+            # y que el pago de referencia que se usa para adivinar el tipo de secuencia sea un pago sin tipo de
+            # documento
+            where_string, param = super(
+                AccountMove, self.with_context(without_payment_group=True))._get_last_sequence_domain(relaxed)
+            where_string += " AND payment_group_id is Null"
+        else:
+            where_string, param = super(AccountMove, self)._get_last_sequence_domain(relaxed)
+        return where_string, param
 
-    # ~ @api.model
-    # ~ def _search(self, args, offset=0, limit=None, order=None, count=False, access_rights_uid=None):
-        # ~ if self._context.get('without_payment_group'):
-            # ~ args += [('payment_group_id', '=', False)]
-        # ~ return super()._search(args, offset=offset, limit=limit, order=order, count=count, access_rights_uid=access_rights_uid)
+    @api.model
+    def _search(self, args, offset=0, limit=None, order=None, count=False, access_rights_uid=None):
+        if self._context.get('without_payment_group'):
+            args += [('payment_group_id', '=', False)]
+        return super()._search(args, offset=offset, limit=limit, order=order, count=count, access_rights_uid=access_rights_uid)
