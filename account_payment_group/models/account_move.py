@@ -41,7 +41,7 @@ class AccountMove(models.Model):
     def _check_unique_sequence_number(self):
         payment_group_moves = self.filtered(
             lambda x: x.journal_id.type in ['cash', 'bank'] and x.payment_id.payment_group_id)
-        return super(AccountMove, self - payment_group_moves)._check_unique_sequence_number()
+        return super(AccountMove, self)._set_next_sequence()
 
     def _compute_payment_groups(self):
         """
@@ -120,6 +120,8 @@ class AccountMove(models.Model):
                             'payment_date': rec.invoice_date,
                             'partner_id': rec.commercial_partner_id.id,
                         })
+                payment_group.remove_all()
+                payment_group.to_pay_move_line_ids = rec.open_move_line_ids
                 # el difference es positivo para facturas (de cliente o
                 # proveedor) pero negativo para NC.
                 # para factura de proveedor o NC de cliente es outbound

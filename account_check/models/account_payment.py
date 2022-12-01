@@ -40,7 +40,8 @@ class AccountPayment(models.Model):
 
     @api.depends('check_ids')
     def _compute_check(self):
-        for rec in self:
+        for rec in self.with_context(skip_account_move_synchronization=True):
+
             rec.check_id = False
             # we only show checks for issue checks or received thid checks
             # if len of checks is 1
@@ -131,7 +132,7 @@ class AccountPayment(models.Model):
         check_payments = self.filtered(
             lambda x: x.payment_method_code in
             ['issue_check', 'received_third_check', 'delivered_third_check'])
-        for rec in check_payments:
+        for rec in check_payments.with_context(skip_account_move_synchronization=True):
             if rec.check_ids:
                 checks_desc = ', '.join(rec.check_ids.mapped('name'))
             else:
@@ -147,7 +148,7 @@ class AccountPayment(models.Model):
     @api.constrains('check_ids')
     @api.onchange('check_ids', 'payment_method_code')
     def onchange_checks(self):
-        for rec in self:
+        for rec in self.with_context(skip_account_move_synchronization=True):
             # we only overwrite if payment method is delivered
             if rec.payment_method_code == 'delivered_third_check':
                 rec.amount = sum(rec.check_ids.mapped('amount'))
@@ -158,7 +159,8 @@ class AccountPayment(models.Model):
                         'You are trying to deposit checks of difference'
                         ' currencies, this functionality is not supported'))
                 elif len(currency) == 1:
-                    rec.currency_id = currency.id
+                    if not rec.currency_id or rec.currency_id != currency:
+                        rec.currency_id = currency.id
 
                 # si es una entrega de cheques de terceros y es en otra moneda
                 # a la de la cia, forzamos el importe en moneda de cia de los
@@ -178,7 +180,7 @@ class AccountPayment(models.Model):
         # habria que eliminar ese onchange, por el momento anulando
         # eso para los cheques de terceros y escribiendo directamente
         # force_amount_company_currency, lo solucionamos
-        self = self.filtered(
+        self = self.with_context(skip_account_move_synchronization=True).filtered(
             lambda x: x.payment_method_code != 'delivered_third_check')
         return super(AccountPayment, self)._inverse_amount_company_currency()
 
@@ -275,12 +277,9 @@ class AccountPayment(models.Model):
 
     @api.onchange('checkbook_id')
     def onchange_checkbook(self):
-        if self.checkbook_id:
-            self.issue_check_subtype = self.checkbook_id.issue_check_subtype
-            if not self.checkbook_id.numerate_on_printing:
-                self.check_number = self.checkbook_id.next_number
+        if self.checkbook_id and not self.checkbook_id.numerate_on_printing:
+            self.check_number = self.checkbook_id.next_number
         else:
-            self.issue_check_subtype = False
             self.check_number = False
 
 # post methods
@@ -304,7 +303,6 @@ class AccountPayment(models.Model):
             'number': self.check_number,
             'name': self.check_name,
             'checkbook_id': self.checkbook_id.id,
-            'issue_check_subtype': self.issue_check_subtype or self.checkbook_id.issue_check_subtype or 'deferred',
             'issue_date': self.check_issue_date,
             'type': self.check_type,
             'journal_id': self.journal_id.id,
@@ -386,9 +384,9 @@ class AccountPayment(models.Model):
                 # get the account before changing the journal on the check
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 rec.check_ids._add_operation(
-                    'transfered', rec, False, date=rec.payment_date)
+                    'transfered', rec, False, date=rec.date)
                 rec.check_ids._add_operation(
-                    'holding', rec, False, date=rec.payment_date)
+                    'holding', rec, False, date=rec.date)
                 rec.check_ids.write({
                     'journal_id': rec.destination_journal_id.id})
                 vals['name'] = _('Transfer checks %s') % ', '.join(
@@ -401,7 +399,7 @@ class AccountPayment(models.Model):
 
                 _logger.info('Sell Check')
                 rec.check_ids._add_operation(
-                    'selled', rec, False, date=rec.payment_date)
+                    'selled', rec, False, date=rec.date)
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 vals['name'] = _('Sell check %s') % ', '.join(
                     rec.check_ids.mapped('name'))
@@ -414,7 +412,7 @@ class AccountPayment(models.Model):
 
                 _logger.info('Deposit Check')
                 rec.check_ids._add_operation(
-                    'deposited', rec, False, date=rec.payment_date)
+                    'deposited', rec, False, date=rec.date)
                 vals['account_id'] = rec.check_ids.get_third_check_account().id
                 vals['name'] = _('Deposit checks %s') % ', '.join(
                     rec.check_ids.mapped('name'))
@@ -437,7 +435,7 @@ class AccountPayment(models.Model):
             if len(rec.check_ids) == 1 and rec.check_ids.payment_date:
                 vals['date_maturity'] = rec.check_ids.payment_date
             rec.check_ids._add_operation(
-                'delivered', rec, rec.partner_id, date=rec.payment_date)
+                'delivered', rec, rec.partner_id, date=rec.date)
             vals['account_id'] = rec.check_ids.get_third_check_account().id
             vals['name'] = _('Deliver checks %s') % ', '.join(
                 rec.check_ids.mapped('name'))
@@ -547,37 +545,6 @@ class AccountPayment(models.Model):
             if force_account_id:
                 vals['destination_account_id'] = force_account_id
         return super().create(vals_list)
-
-    # def _prepare_payment_moves(self):
-    #     vals = super(AccountPayment, self)._prepare_payment_moves()
-    #
-    #     force_account_id = self._context.get('force_account_id')
-    #     all_moves_vals = []
-    #     for rec in self:
-    #         moves_vals = super(AccountPayment, rec)._prepare_payment_moves()
-    #
-    #         # edit liquidity lines
-    #         # Si se esta forzando importe en moneda de cia, usamos este importe para debito/credito
-    #         vals = rec.do_checks_operations()
-    #         if vals:
-    #             moves_vals[0]['line_ids'][1][2].update(vals)
-    #
-    #         # edit counterpart lines
-    #         # use check payment date on debt entry also so that it can be used for NC/ND adjustaments
-    #         if rec.check_type and rec.check_payment_date:
-    #             moves_vals[0]['line_ids'][0][2]['date_maturity'] = rec.check_payment_date
-    #         if force_account_id:
-    #             moves_vals[0]['line_ids'][0][2]['account_id'] = force_account_id
-    #
-    #         # split liquidity lines on detailed checks transfers
-    #         if rec.is_internal_transfer and rec.payment_method_code == 'delivered_third_check' \
-    #            and rec.check_deposit_type == 'detailed':
-    #             rec._split_aml_line_per_check(moves_vals[0]['line_ids'])
-    #             rec._split_aml_line_per_check(moves_vals[1]['line_ids'])
-    #
-    #         all_moves_vals += moves_vals
-    #
-    #     return all_moves_vals
 
     def do_print_checks(self):
         # si cambiamos nombre de check_report tener en cuenta en sipreco

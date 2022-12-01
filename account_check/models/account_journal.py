@@ -17,12 +17,26 @@ class AccountJournal(models.Model):
         auto_join=True,
     )
 
+    def _default_outbound_payment_methods(self):
+        res = super()._default_outbound_payment_methods()
+        if self.type == 'cash':
+            res += self.env.ref('account_check.account_payment_method_issue_check')
+        if self.type == 'bank':
+            res += self.env.ref('account_check.account_payment_method_issue_check')
+        return res
+
+    def _default_inbound_payment_methods(self):
+        res = super()._default_inbound_payment_methods()
+        if self.type == 'cash':
+            res += self.env.ref('account_check.account_payment_method_received_third_check')
+        return res
+
     @api.model
     def create(self, vals):
         rec = super(AccountJournal, self).create(vals)
         issue_checks = self.env.ref(
             'account_check.account_payment_method_issue_check')
-        if (issue_checks in rec.outbound_payment_method_line_ids and
+        if rec.outbound_payment_method_line_ids and (issue_checks in rec.outbound_payment_method_line_ids.mapped('payment_method_id') and
                 not rec.checkbook_ids):
             rec._create_checkbook()
         return rec
@@ -50,9 +64,8 @@ class AccountJournal(models.Model):
         for bank_journal in bank_journals:
             if not bank_journal.checkbook_ids:
                 bank_journal._create_checkbook()
-            bank_journal.write({
-                'outbound_payment_method_line_ids': [(4, issue_checks.id, None)],
-            })
+            bank_journal._compute_inbound_payment_method_line_ids()
+            bank_journal._compute_outbound_payment_method_line_ids()
 
 ###############
 # For dashboard

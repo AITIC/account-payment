@@ -36,7 +36,6 @@
         'account_payment_group',
     ],
     'data': [
-        'data/account_payment_method_data.xml',
         'data/ir_actions_server_data.xml',
         'wizard/account_check_action_wizard_view.xml',
         'wizard/print_pre_numbered_checks_view.xml',
@@ -49,6 +48,7 @@
         'views/account_chart_template_view.xml',
         'security/ir.model.access.csv',
         'security/account_check_security.xml',
+        'data/account_payment_method_data.xml',
     ],
     'demo': [
     ],
