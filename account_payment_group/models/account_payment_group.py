@@ -507,19 +507,9 @@ class AccountPaymentGroup(models.Model):
                 raise ValidationError(_('All to pay lines must be of the same partner'))
             if len(rec.to_pay_move_line_ids.mapped('company_id')) > 1:
                 raise ValidationError(_("You can't create payments for entries belonging to different companies."))
-            if to_pay_partners and to_pay_partners != rec.partner_id:
+            if to_pay_partners and to_pay_partners != rec.partner_id.commercial_partner_id:
                 raise ValidationError(_('Payment group for partner %s but payment lines are of partner %s') % (
                     rec.partner_id.name, to_pay_partners.name))
-
-    @api.constrains('partner_id', 'company_id')
-    def _check_no_transfer(self):
-        # TODO en realidad si habría casos de uso donde esto es necesario se podría permitir sin problemas,
-        # de hecho odoo hizo un cambio para permitirlo acá
-        # https://github.com/odoo/odoo/commit/362d8cbf7724431672b8b73fb5f4682d4d2c3f66
-        # igual por el momento parece ser más apropiado recomendar transferencia interna
-        transfers = self.filtered(lambda x: x.company_id.partner_id == x.partner_id)
-        if transfers:
-            raise ValidationError(_("You can't make a payment/receipt to your same company, create an internal transfer instead"))
 
     # from old account_payment_document_number
 
