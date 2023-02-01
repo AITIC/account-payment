@@ -241,7 +241,7 @@ class AccountPaymentGroup(models.Model):
     writeoff_amount = fields.Monetary(
         string='Payment difference amount',
         track_visibility='onchange')
-        
+
     @api.depends(
         'state',
         'payments_amount',
@@ -587,6 +587,10 @@ class AccountPaymentGroup(models.Model):
         create_from_website = self._context.get('create_from_website', False)
         create_from_statement = self._context.get('create_from_statement', False)
         create_from_expense = self._context.get('create_from_expense', False)
+        posted_payment_groups = self.filtered(lambda x: x.state == 'posted')
+        if posted_payment_groups:
+            raise ValidationError(_(
+                "You can't post and already posted payment group. Payment group ids: %s") % posted_payment_groups.ids)
         for rec in self:
             # TODO if we want to allow writeoff then we can disable this
             # constrain and send writeoff_journal_id and writeoff_acc_id
@@ -597,22 +601,20 @@ class AccountPaymentGroup(models.Model):
             # si el pago se esta posteando desde statements y hay doble
             # validacion no verificamos que haya deuda seleccionada
             if (rec.payment_subtype == 'double_validation' and
-                    rec.payment_difference and rec.payment_difference_handling != 'reconcile' and
-                    (not create_from_statement and not create_from_expense)):
+                    rec.payment_difference and (not create_from_statement and
+                                                not create_from_expense)):
                 raise ValidationError(_(
                     'To Pay Amount and Payment Amount must be equal!'))
 
             writeoff_acc_id = False
             writeoff_journal_id = False
-
-            #Conciliar en una cuenta contable la diferencia entre la deuda y lo pagado.
-            if rec.payment_difference_handling == 'reconcile':
-                rec.reconcile_diff_payment()
-
+            # if the partner of the payment is different of ht payment group we change it.
+            rec.payment_ids.filtered(lambda p: p.partner_id != rec.partner_id).write(
+                {'partner_id': rec.partner_id.id})
             # al crear desde website odoo crea primero el pago y lo postea
             # y no debemos re-postearlo
             if not create_from_website and not create_from_expense:
-                rec.payment_ids.sorted(key=lambda l: l.signed_amount).filtered(lambda x: x.state == 'draft').post()
+                rec.payment_ids.filtered(lambda x: x.state == 'draft').post()
 
             counterpart_aml = rec.payment_ids.mapped('move_line_ids').filtered(
                 lambda r: not r.reconciled and r.account_id.internal_type in (
@@ -626,23 +628,6 @@ class AccountPaymentGroup(models.Model):
 
             rec.state = 'posted'
         return True
-
-    def reconcile_diff_payment(self):
-        self.ensure_one()
-        sign = self.partner_type == 'supplier' and -1.0 or 1.0
-        payment_curr = self.payment_ids.filtered(lambda x: x.currency_id == self.currency_id)
-        if payment_curr:
-            payment_diff = payment_curr.sorted(key=lambda i: i.amount, reverse=True)[0]
-        else:
-            payment_diff = self.payment_ids.sorted(key=lambda i: i.amount, reverse=True)[0]
-        payment_diff.payment_difference = sign * self.currency_id._convert(self.payment_difference,
-                                                                    payment_diff.currency_id,
-                                                                    self.company_id,
-                                                                    self.payment_date or fields.Date.today())
-        self.writeoff_amount = self.payment_difference * -1
-        payment_diff.payment_difference_handling = self.payment_difference_handling
-        payment_diff.writeoff_account_id = self.writeoff_account_id.id
-        payment_diff.writeoff_label = self.writeoff_label
 
     @api.returns('mail.message', lambda value: value.id)
     def message_post(self, **kwargs):
