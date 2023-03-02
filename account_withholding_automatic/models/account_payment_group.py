@@ -90,7 +90,7 @@ class AccountPaymentGroup(models.Model):
             self.env['account.tax'].with_context(type=None).search([
                 ('type_tax_use', '=', rec.partner_type),
                 ('company_id', '=', rec.company_id.id),
-            ]).create_payment_withholdings(rec)
+            ]).sudo().create_payment_withholdings(rec)
 
     def confirm(self):
         res = super(AccountPaymentGroup, self).confirm()
