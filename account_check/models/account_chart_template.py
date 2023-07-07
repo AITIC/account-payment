@@ -65,10 +65,10 @@ class AccountChartTemplate(models.Model):
             'name': 'Cheques de Terceros',
             'type': 'cash',
             'company_id': company.id,
-            'inbound_payment_method_ids': [
-                (4, received_third_check.id, None)],
-            'outbound_payment_method_ids': [
-                (4, delivered_third_check.id, None)],
+            # 'inbound_payment_method_ids': [
+            #     (4, received_third_check.id, None)],
+            # 'outbound_payment_method_ids': [
+            #     (4, delivered_third_check.id, None)],
         })
 
         self.env['account.journal'].with_company(company)._enable_issue_check_on_bank_journals()
