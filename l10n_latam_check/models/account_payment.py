@@ -57,7 +57,7 @@ class AccountPayment(models.Model):
     def _compute_check_number(self):
         """ Override from account_check_printing"""
         from_checkbooks = self.filtered(lambda x: x.l10n_latam_checkbook_id)
-        for pay in from_checkbooks:
+        for pay in from_checkbooks.filtered(lambda x: x.state == 'draft'):
             # we don't recompute when creating from a method and if check_number is sent
             if pay.check_number and not isinstance(pay.id, models.NewId):
                 continue
@@ -95,8 +95,7 @@ class AccountPayment(models.Model):
         new_third_party_checks = self.filtered(lambda x: x.payment_method_line_id.code == 'new_third_party_checks')
         for rec in new_third_party_checks:
             rec.update({
-                'l10n_latam_check_bank_id': rec.partner_id.bank_ids and rec.partner_id.bank_ids[0].bank_id or False,
-                'l10n_latam_check_issuer_vat': rec.partner_id.vat,
+                'l10n_latam_check_issuer_vat': rec.l10n_latam_check_issuer_vat or rec.partner_id.vat,
             })
 
     @api.depends(
