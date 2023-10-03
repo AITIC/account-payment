@@ -177,6 +177,11 @@ msgid "Importe imputado sujeto a retencion"
 msgstr "Importe imputado sujeto a retención"
 
 #. module: account_withholding_automatic
+#: model:ir.model,name:account_withholding_automatic.model_account_journal
+msgid "Journal"
+msgstr "Diario"
+
+#. module: account_withholding_automatic
 #: model:ir.model.fields,field_description:account_withholding_automatic.field_account_tax_withholding_rule____last_update
 msgid "Last Modified on"
 msgstr "Última Modificación el"
@@ -201,6 +206,11 @@ msgstr "Hacer retenciones automáticas en las confirmaciones de pagos"
 #: model_terms:ir.ui.view,arch_db:account_withholding_automatic.res_config_settings_view_form
 msgid "Make withholdings automatically on payments confirmation."
 msgstr "Hacer retenciones automáticamente en la confirmación de los pagos."
+
+#. module: account_withholding_automatic
+#: model:ir.model.fields,field_description:account_withholding_automatic.field_account_tax__minimum_withholding_amount
+msgid "Minimum withholding amount"
+msgstr "Importe mínimo de retención"
 
 #. module: account_withholding_automatic
 #: model:ir.model.fields.selection,name:account_withholding_automatic.selection__account_tax__withholding_accumulated_payments__month
@@ -301,6 +311,12 @@ msgid "Sometimes used for withholdings calculation"
 msgstr "Algunas veces usado para el cálculo de retenciones"
 
 #. module: account_withholding_automatic
+#: model:ir.model.fields,field_description:account_withholding_automatic.field_account_bank_statement_import_journal_creation__withholding_account_tag_ids
+#: model:ir.model.fields,field_description:account_withholding_automatic.field_account_journal__withholding_account_tag_ids
+msgid "Tags for withholding"
+msgstr "Etiquetas de retención"
+
+#. module: account_withholding_automatic
 #: model:ir.model,name:account_withholding_automatic.model_account_tax
 msgid "Tax"
 msgstr "Impuesto"
@@ -311,9 +327,28 @@ msgid "Tax Withholding"
 msgstr "Impuesto de Retención"
 
 #. module: account_withholding_automatic
+#: model:ir.model.fields,help:account_withholding_automatic.field_account_bank_statement_import_journal_creation__withholding_account_tag_ids
+#: model:ir.model.fields,help:account_withholding_automatic.field_account_journal__withholding_account_tag_ids
+msgid ""
+"Tax labels can be chosen:\n"
+"* To obtain the journal that you want to use to record the withholding."
+msgstr ""
+"Se pueden elegir etiquetas de impuestos:\n"
+"* Para obtener el diario que desea utilizar para registrar la retención."
+
+#. module: account_withholding_automatic
 #: model:ir.model.fields,help:account_withholding_automatic.field_account_tax__withholding_type
 msgid "The computation method for the tax amount."
 msgstr "Método de cálculo para el importe del impuesto."
+
+#. module: account_withholding_automatic
+#: model:ir.model.fields,help:account_withholding_automatic.field_account_tax__minimum_withholding_amount
+msgid ""
+"The withholding amount must be greater than this amount to apply the "
+"withholding."
+msgstr ""
+"El importe de la retención debe ser mayor que este importe para que se aplique "
+"la retención."
 
 #. module: account_withholding_automatic
 #: model:ir.model.fields,field_description:account_withholding_automatic.field_account_payment__total_amount
@@ -337,6 +372,17 @@ msgid "Withholdable Base Amount"
 msgstr "Importe Base de Retención"
 
 #. module: account_withholding_automatic
+#: model_terms:ir.ui.view,arch_db:account_withholding_automatic.view_account_journal_form
+msgid "Withholding"
+msgstr "Retención"
+
+#. module: account_withholding_automatic
+#: model:ir.model.fields,field_description:account_withholding_automatic.field_account_bank_statement_import_journal_creation__withholding_journal
+#: model:ir.model.fields,field_description:account_withholding_automatic.field_account_journal__withholding_journal
+msgid "Withholding Journal"
+msgstr "Diario de retención"
+
+#. module: account_withholding_automatic
 #: model:ir.model.fields,field_description:account_withholding_automatic.field_account_tax__withholding_user_error_domain
 msgid "Withholding User Error Domain"
 msgstr "Dominio de Error de Usuario de Retención"
@@ -350,6 +396,11 @@ msgstr "Mensaje de Error de Usuario de Retención"
 #: model_terms:ir.ui.view,arch_db:account_withholding_automatic.view_tax_form
 msgid "Withholding computation"
 msgstr "Cálculo de retención"
+
+#. module: account_withholding_automatic
+#: model_terms:ir.ui.view,arch_db:account_withholding_automatic.view_tax_form
+msgid "Withholding computation"
+msgstr "Calculo de Retención"
 
 #. module: account_withholding_automatic
 #: model:ir.model.fields,field_description:account_withholding_automatic.field_account_payment_group__withholdings_amount

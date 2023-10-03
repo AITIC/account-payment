@@ -83,8 +83,9 @@ class AccountPayment(models.Model):
         states={'draft': [('readonly', False)]},
         auto_join=True,
     )
-    check_subtype = fields.Selection(
-        related='checkbook_id.issue_check_subtype',
+    issue_check_subtype = fields.Selection(
+        [('deferred', 'Deferred'), ('currents', 'Currents'), ('electronic', 'Electronic')],
+        string='Check Subtype'
     )
     check_bank_id = fields.Many2one(
         'res.bank',
@@ -231,7 +232,7 @@ class AccountPayment(models.Model):
             [('check_owner_vat', '=', self.check_owner_vat)],
             limit=1).check_owner_name
         if not check_owner_name:
-            check_owner_name = self.partner_id.commercial_partner_id and self.partner_id.commercial_partner_id.name
+            check_owner_name = self.partner_id.commercial_partner_id and self.partner_id.commercial_partner_id.name or ''
         self.check_owner_name = check_owner_name
 
     @api.onchange('partner_id', 'payment_method_code')
@@ -274,9 +275,12 @@ class AccountPayment(models.Model):
 
     @api.onchange('checkbook_id')
     def onchange_checkbook(self):
-        if self.checkbook_id and not self.checkbook_id.numerate_on_printing:
-            self.check_number = self.checkbook_id.next_number
+        if self.checkbook_id:
+            self.issue_check_subtype = self.checkbook_id.issue_check_subtype
+            if not self.checkbook_id.numerate_on_printing:
+                self.check_number = self.checkbook_id.next_number
         else:
+            self.issue_check_subtype = False
             self.check_number = False
 
 # post methods
@@ -300,6 +304,7 @@ class AccountPayment(models.Model):
             'number': self.check_number,
             'name': self.check_name,
             'checkbook_id': self.checkbook_id.id,
+            'issue_check_subtype': self.issue_check_subtype or self.checkbook_id.issue_check_subtype or 'deferred',
             'issue_date': self.check_issue_date,
             'type': self.check_type,
             'journal_id': self.journal_id.id,
@@ -456,7 +461,7 @@ class AccountPayment(models.Model):
             # al final por ahora depreciamos esto ya que deberiamos adaptar
             # rechazos y demas, deferred solamente sin fecha pero con cuenta
             # puente
-            # if self.check_subtype == 'deferred':
+            # if self.issue_check_subtype == 'deferred':
             vals['account_id'] = self.company_id._get_check_account(
                 'deferred').id
             operation = 'handed'
@@ -481,7 +486,7 @@ class AccountPayment(models.Model):
             vals['date_maturity'] = self.check_payment_date
             # if check is deferred, change account
             # si retiramos por caja directamente lo sacamos de banco
-            # if self.check_subtype == 'deferred':
+            # if self.issue_check_subtype == 'deferred':
             #     vals['account_id'] = self.company_id._get_check_account(
             #         'deferred').id
         else:

@@ -221,6 +221,26 @@ class AccountPaymentGroup(models.Model):
         copy=False,
         help="It indicates that the receipt has been sent."
     )
+    #Conciliar diferencia en pagos contra una cuenta.
+    payment_difference_handling = fields.Selection(
+        [('open', 'Keep open'),
+         ('reconcile', 'Mark invoice as fully paid')],
+        default='open',
+        string="Payment Difference Handling",
+        copy=False)
+    writeoff_account_id = fields.Many2one(
+        'account.account',
+        string="Difference Account",
+        domain="[('deprecated', '=', False), "
+               "('company_id', '=', company_id)]",
+        copy=False)
+    writeoff_label = fields.Char(
+        string='Journal Item Label',
+        help='Change label of the counterpart that will hold the payment difference',
+        default='Write-Off')
+    writeoff_amount = fields.Monetary(
+        string='Payment difference amount',
+        track_visibility='onchange')
 
     @api.depends(
         'state',
@@ -238,7 +258,7 @@ class AccountPaymentGroup(models.Model):
             sign = rec.partner_type == 'supplier' and -1.0 or 1.0
             rec.matched_amount = sign * sum(
                 rec.matched_move_line_ids.with_context(payment_group_id=rec.id).mapped('payment_group_matched_amount'))
-            rec.unmatched_amount = rec.payments_amount - rec.matched_amount
+            rec.unmatched_amount = rec.payments_amount - rec.matched_amount - rec.writeoff_amount
 
     def _compute_matched_amount_untaxed(self):
         """ Lo separamos en otro metodo ya que es un poco mas costoso y no se
@@ -419,7 +439,7 @@ class AccountPaymentGroup(models.Model):
             selected_debt = 0.0
             selected_debt_untaxed = 0.0
             for line in rec.to_pay_move_line_ids._origin:
-                selected_finacial_debt += line.financial_amount_residual
+                selected_finacial_debt += line.with_context(date_account=rec.payment_date).financial_amount_residual
                 selected_debt += line.amount_residual
                 # factor for total_untaxed
                 invoice = line.move_id
@@ -478,8 +498,17 @@ class AccountPaymentGroup(models.Model):
 
     def add_all(self):
         for rec in self:
-            rec.to_pay_move_line_ids = rec.env['account.move.line'].search(
-                rec._get_to_pay_move_lines_domain())
+            # Cuando se genera el pago desde la factura debe reconocer las deudas de las
+            # facturas a pagar y no la deuda global.
+            if self._context.get('to_pay_move_line_ids', False):
+                to_pay_move_line_ids = self._context.get('to_pay_move_line_ids')
+                rec.to_pay_move_line_ids = self.env['account.move.line'].browse(
+                    to_pay_move_line_ids).filtered(lambda x: (
+                        x.account_id.reconcile and
+                        x.account_id.internal_type in ('receivable', 'payable')))
+            else:
+                rec.to_pay_move_line_ids = rec.env['account.move.line'].search(
+                    rec._get_to_pay_move_lines_domain())
 
     def remove_all(self):
         self.to_pay_move_line_ids = False
@@ -534,6 +563,7 @@ class AccountPaymentGroup(models.Model):
     def action_draft(self):
         self.mapped('payment_ids').action_draft()
         # rec.payment_ids.write({'invoice_ids': [(5, 0, 0)]})
+        self.writeoff_amount = 0.0
         return self.write({'state': 'draft'})
 
     def unlink(self):
