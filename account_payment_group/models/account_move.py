@@ -20,6 +20,10 @@ class AccountMove(models.Model):
         'method is used, only journals with manual method are shown.',
         readonly=True,
         states={'draft': [('readonly', False)]},
+        # use copy false for two reasons:
+        # 1. when making refund it's safer to make pay now empty (specially if automatic refund validation is enable)
+        # 2. on duplicating an invoice it's safer also
+        copy=False,
     )
     payment_group_ids = fields.Many2many(
         'account.payment.group',
@@ -50,8 +54,8 @@ class AccountMove(models.Model):
 
     def action_account_invoice_payment_group(self):
         self.ensure_one()
-        if self.state != 'posted' or self.invoice_payment_state != 'not_paid':
-            raise ValidationError(_('You can only register payment if invoice is posted and unpaid'))
+        if self.state == 'cancel' or self.invoice_payment_state != 'not_paid':
+            raise ValidationError(_('You can only register payment if invoice is not cancelled and unpaid'))
         return {
             'name': _('Register Payment'),
             'view_type': 'form',
@@ -81,6 +85,14 @@ class AccountMove(models.Model):
         self.pay_now()
         return res
 
+    def pay_now_context(self, partner_type):
+        self.ensure_one()
+        return {
+            'to_pay_move_line_ids': (self.open_move_line_ids.ids),
+            'default_company_id': self.company_id.id,
+            'default_partner_type': partner_type,
+        }
+
     def pay_now(self):
         # validate_payment = not self._context.get('validate_payment')
         for rec in self:
@@ -96,11 +108,7 @@ class AccountMove(models.Model):
                 else:
                     partner_type = 'customer'
 
-                pay_context = {
-                    'to_pay_move_line_ids': (rec.open_move_line_ids.ids),
-                    'default_company_id': rec.company_id.id,
-                    'default_partner_type': partner_type,
-                }
+                pay_context = rec.pay_now_context(partner_type)
 
                 payment_group = rec.env[
                     'account.payment.group'].with_context(
@@ -163,10 +171,12 @@ class AccountMove(models.Model):
             result['res_id'] = self.payment_group_ids.id
         return result
 
-    @api.onchange('company_id')
-    def _onchange_company_id(self):
+    @api.onchange('journal_id')
+    def _onchange_journal_reset_pay_now(self):
+        # while not always it should be reseted (only if changing company) it's not so usual to set pay now first
+        # and then change journal
         self.pay_now_journal_id = False
 
-    def button_cancel(self):
-        self.filtered(lambda x: x.state != 'draft' and x.pay_now_journal_id).write({'pay_now_journal_id': False})
-        return super().button_cancel()
+    def button_draft(self):
+        self.filtered(lambda x: x.state == 'posted' and x.pay_now_journal_id).write({'pay_now_journal_id': False})
+        return super().button_draft()

@@ -94,7 +94,14 @@ class AccountPayment(models.Model):
 
     @api.onchange('payment_group_id')
     def onchange_payment_group_id(self):
-        if self.payment_group_id.payment_difference:
+        # now we change this according when use save & new the context from the payment was erased and we need to use some data.
+        # this change is due this odoo change https://github.com/odoo/odoo/commit/c14b17c4855fd296fd804a45eab02b6d3566bb7a
+        if self.payment_group_id:
+            self.payment_group_company_id = self.payment_group_id.company_id
+            self.payment_date = self.payment_group_id.payment_date
+            self.partner_type = self.payment_group_id.partner_type
+            self.partner_id = self.payment_group_id.partner_id
+            self.payment_type = 'inbound' if self.payment_group_id.partner_type  == 'customer' else 'outbound'
             self.amount = self.payment_group_id.payment_difference
 
     #Cuando cambie la moneda del pago se recompute el valor del mismo
@@ -183,7 +190,7 @@ class AccountPayment(models.Model):
         we disable change of partner_type if we came from a payment_group
         but we still reset the journal
         """
-        if not self._context.get('payment_group'):
+        if not self.payment_group_id:
             return super(AccountPayment, self)._onchange_payment_type()
         self.journal_id = False
 
@@ -362,3 +369,10 @@ class AccountPayment(models.Model):
                             line[2]['credit'] = rec.force_amount_company_currency
                 all_moves_vals += [move_vals]
         return all_moves_vals
+
+    @api.model
+    def default_get(self, default_fields):
+        rec = super().default_get(default_fields)
+        if rec.get('invoice_ids', False):
+            rec.pop('invoice_ids')
+        return rec
