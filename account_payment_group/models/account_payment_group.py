@@ -382,19 +382,14 @@ class AccountPaymentGroup(models.Model):
         al revz (debit_move_id vs credit_move_id)
         """
         for rec in self:
-            lines = rec.move_line_ids.browse()
-            # not sure why but self.move_line_ids dont work the same way
-            payment_lines = rec.payment_ids.mapped('move_line_ids')
-
-            reconciles = rec.env['account.partial.reconcile'].search([
-                ('credit_move_id', 'in', payment_lines.ids)])
-            lines |= reconciles.mapped('debit_move_id')
-
-            reconciles = rec.env['account.partial.reconcile'].search([
-                ('debit_move_id', 'in', payment_lines.ids)])
-            lines |= reconciles.mapped('credit_move_id')
-
-            rec.matched_move_line_ids = lines - payment_lines
+            payment_lines = rec.payment_ids.mapped('move_line_ids').filtered(lambda x: x.account_internal_type in ['receivable', 'payable'])
+            debit_moves = payment_lines.mapped('matched_debit_ids.debit_move_id')
+            credit_moves = payment_lines.mapped('matched_credit_ids.credit_move_id')
+            debit_lines_sorted = debit_moves.filtered(lambda x: x.date_maturity != False).sorted(key=lambda x: (x.date_maturity, x.move_id.name))
+            credit_lines_sorted = credit_moves.filtered(lambda x: x.date_maturity != False).sorted(key=lambda x: (x.date_maturity, x.move_id.name))
+            debit_lines_without_date_maturity = debit_moves - debit_lines_sorted
+            credit_lines_without_date_maturity = credit_moves - credit_lines_sorted
+            rec.matched_move_line_ids =  ((debit_lines_sorted + debit_lines_without_date_maturity) | (credit_lines_sorted + credit_lines_without_date_maturity)) - payment_lines
 
     @api.depends('payment_ids.move_line_ids')
     def _compute_move_lines(self):
@@ -609,7 +604,7 @@ class AccountPaymentGroup(models.Model):
             writeoff_acc_id = False
             writeoff_journal_id = False
             # if the partner of the payment is different of ht payment group we change it.
-            rec.payment_ids.filtered(lambda p: p.partner_id != rec.partner_id).write(
+            rec.payment_ids.filtered(lambda p : p.partner_id != rec.partner_id).write(
                 {'partner_id': rec.partner_id.id})
             # al crear desde website odoo crea primero el pago y lo postea
             # y no debemos re-postearlo
