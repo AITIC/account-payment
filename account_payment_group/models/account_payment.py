@@ -167,10 +167,10 @@ class AccountPayment(models.Model):
         recs = super().create(vals_list)
         for rec in recs.filtered(lambda x: not x.payment_group_id and not x.is_internal_transfer).with_context(
                 created_automatically=True):
-            if not rec.partner_id and not rec.pos_session_id:
+            if not rec.partner_id and 'pos_session_id' in rec and not rec.pos_session_id:
                 raise ValidationError(_(
                     'Manual payments should not be created manually but created from Customer Receipts / Supplier Payments menus'))
-            if not rec.pos_session_id:
+            if 'pos_session_id' in rec and not rec.pos_session_id:
                 rec.payment_group_id = self.env['account.payment.group'].create({
                     'company_id': rec.company_id.id,
                     'partner_type': rec.partner_type,
