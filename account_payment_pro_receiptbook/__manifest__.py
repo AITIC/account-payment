@@ -1,7 +1,7 @@
-# © 2023 ADHOC SA
+# © 2024 ADHOC SA
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
-    "name": "Account Payment Super Power",
+    "name": "Account Payment receiptbook",
     "version": "17.0.1.1.0",
     "category": "Payment",
     "website": "www.adhoc.com.ar",
@@ -13,18 +13,19 @@
         "bin": [],
     },
     "depends": [
-        "account",
-        # TODO mover esto a modulo puente
+        "account_payment_pro",
         "l10n_latam_invoice_document",
     ],
     "data": [
-        'security/payment_security.xml',
         'security/ir.model.access.csv',
-        'wizards/account_payment_invoice_wizard_view.xml',
-        'views/account_payment_view.xml',
-        'views/account_move.xml',
-        'views/res_company_setting.xml',
+        'views/account_payment_receipt_group.xml',
+        'views/account_payment.xml',
+        'data/l10n_latam.document.type.csv',
     ],
+    'installable': True,
+    'auto_install': False,
+    'application': False,
+    'post_init_hook': '_generate_receiptbooks',
     "demo": [
     ],
 }

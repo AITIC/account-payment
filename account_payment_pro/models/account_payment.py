@@ -112,6 +112,39 @@ class AccountPayment(models.Model):
         help="Difference between selected debt (or to pay amount) and "
         "payments amount"
     )
+    payment_difference_handling = fields.Selection(
+        string="Payment Difference Handling",
+        selection=[('open', 'Keep open'), ('reconcile', 'Mark as fully paid')],
+        # compute='_compute_payment_difference_handling',
+        # store=True,
+        # readonly=False,
+        default='open',
+    )
+    writeoff_account_id = fields.Many2one(
+        comodel_name='account.account',
+        string="Difference Account",
+        copy=False,
+        domain="[('deprecated', '=', False)]",
+        check_company=True,
+        # compute='_compute_writeoff_account_id',
+        # store=True,
+        # readonly=False,
+    )
+    writeoff_label = fields.Char(string='Journal Item Label', default='Write-Off',
+                                 help='Change label of the counterpart that will hold the payment difference')
+    is_confirmed = fields.Boolean(tracking=True, copy=False,)
+    requiere_double_validation = fields.Boolean(compute='_compute_requiere_double_validation')
+
+    def action_confirm(self):
+        self.filtered(lambda x: x.state == 'draft').is_confirmed = True
+
+    @api.depends('company_id.double_validation', 'partner_type')
+    def _compute_requiere_double_validation(self):
+        double_validation = self.env['account.payment']
+        if 'force_simple' not in self._context:
+            double_validation = self.filtered(lambda x: x.company_id.double_validation and not x.is_confirmed and x.partner_type == 'supplier')
+            double_validation.requiere_double_validation = True
+        (self - double_validation).requiere_double_validation = False
 
     ##############################
     # desde modelo account.payment
@@ -204,8 +237,28 @@ class AccountPayment(models.Model):
             else:
                 super(AccountPayment, rec)._compute_destination_account_id()
 
-    def _prepare_move_line_default_vals(self, write_off_line_vals=None):
-        res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals)
+    def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
+        # TODO: elimino los write_off_line_vals  porque los regenero tanto aca
+        # como en retenciones. esto puede generar problemas
+        write_off_line_vals = []
+        if self.payment_difference > 0 and self.payment_difference_handling == 'reconcile':
+            if self.payment_type == 'inbound':
+                # Receive money.
+                write_off_amount_currency = self.payment_difference
+            else:
+                # Send money.
+                write_off_amount_currency = -self.payment_difference
+
+            write_off_line_vals.append({
+                'name': self.writeoff_label,
+                'account_id': self.writeoff_account_id.id,
+                'partner_id': self.partner_id.id,
+                'currency_id': self.currency_id.id,
+                'amount_currency': write_off_amount_currency,
+                'balance': self.currency_id._convert(write_off_amount_currency, self.company_id.currency_id,
+                                                     self.company_id, self.date),
+            })
+        res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
         if self.force_amount_company_currency:
             difference = self.force_amount_company_currency - res[0]['credit'] - res[0]['debit']
             if res[0]['credit']:
@@ -222,10 +275,16 @@ class AccountPayment(models.Model):
             })
         return res
 
-    # @api.model
-    # def _get_trigger_fields_to_synchronize(self):
-    #     res = super()._get_trigger_fields_to_synchronize()
-    #     return res + ('force_amount_company_currency',)
+    @api.model
+    def _get_trigger_fields_to_synchronize(self):
+        res = super()._get_trigger_fields_to_synchronize()
+        # si bien es un metodo api.model usamos este hack para chequear si es la creacion de un payment que termina
+        # triggereando un write y luego llamando a este metodo y dando error, por ahora no encontramos una mejor forma
+        # esto esta ligado de alguna manera a un llamado que se hace dos veces por "culpa" del método
+        # "_inverse_amount_company_currency". Si bien no es elegante para todas las pruebas que hicimos funcionó bien.
+        if self.mapped('open_move_line_ids'):
+            res = res + ('force_amount_company_currency',)
+        return res + ('payment_difference_handling',)
 
     # TODO traer de account_ux y verificar si es necesario
     # @api.depends_context('default_is_internal_transfer')
@@ -342,7 +401,13 @@ class AccountPayment(models.Model):
     @api.depends('to_pay_move_line_ids.amount_residual')
     def _compute_selected_debt(self):
         for rec in self:
+            # factor = 1
             rec.selected_debt = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual')) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            # TODO error en la creacion de un payment desde el menu?
+            # if rec.payment_type == 'outbound' and rec.partner_type == 'customer' or \
+            #         rec.payment_type == 'inbound' and rec.partner_type == 'supplier':
+            #     factor = -1
+            # rec.selected_debt = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual')) * factor
 
     @api.depends(
         'selected_debt', 'unreconciled_amount')
@@ -400,6 +465,8 @@ class AccountPayment(models.Model):
         # sino que esta implementado en account_payment_ux
         # posted_payments = rec.payment_ids.filtered(lambda x: x.state == 'posted')
         # if not created_automatically and posted_payments:
+        # created_automatically = self._context.get('created_automatically')
+
         for rec in self:
             counterpart_aml = rec.mapped('line_ids').filtered(
                 lambda r: not r.reconciled and r.account_id.account_type in self._get_valid_payment_account_types())
@@ -407,3 +474,10 @@ class AccountPayment(models.Model):
                 (counterpart_aml + (rec.to_pay_move_line_ids)).reconcile()
 
         return res
+
+    # --- ORM METHODS--- #
+    def web_read(self, specification):
+        fields_to_read = list(specification) or ['id']
+        if 'matched_move_line_ids' in fields_to_read and 'context' in specification['matched_move_line_ids']:
+            specification['matched_move_line_ids']['context'].update({'matched_payment_ids': self._ids})
+        return super().web_read(specification)
