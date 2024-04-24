@@ -637,6 +637,6 @@ class AccountPayment(models.Model):
             account_id = self.company_id._get_check_account('deferred')
             if self.payment_method_code == 'issue_check' and account_id:
                 for line in self.move_id.line_ids:
-                    if line.account_id == account_id:
+                    if line.account_id == account_id and len(liquidity_lines) == 0:
                         liquidity_lines += line
         return liquidity_lines, counterpart_lines, writeoff_lines
