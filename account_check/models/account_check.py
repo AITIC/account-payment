@@ -474,8 +474,8 @@ class AccountCheck(models.Model):
                     'deferred').id,
             ).create(payment_values)
             self.post_payment_check(payment)
-            self.handed_reconcile(payment.move_line_ids.mapped('move_id'))
-            self._add_operation('debited', payment, date=payment.payment_date)
+         #   self.handed_reconcile(payment.move_line_ids.mapped('move_id'))
+         #   self._add_operation('debited', payment, date=payment.payment_date)
 
     @api.model
     def post_payment_check(self, payment):
