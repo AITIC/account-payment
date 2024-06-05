@@ -5,6 +5,9 @@
         <field name="model">account.payment</field>
         <field name="inherit_id" ref="account.view_account_supplier_payment_tree"/>
         <field name="arch" type="xml">
+            <header>
+                <button name="action_approve" string="Approve" groups="account_payment_pro.account_confirm_payment" type="object"/>
+            </header>
             <field name="state" position="after">
                 <field name="is_approved" optional="hide"/>
             </field>
@@ -47,8 +50,8 @@
                 <attribute name="invisible" add="requiere_double_validation" separator=" or "></attribute>
             </button>
             <button name="action_post" position="before">
-                <button name="action_confirm" class="oe_highlight" string="Approve" groups="account_payment_pro.account_confirm_payment" invisible="state != 'draft' or not requiere_double_validation" type="object"/>
-                <button name="action_unconfirm" string="Back to Edit" invisible="state == 'draft' and not is_approved" type="object"/>
+                <button name="action_approve" class="oe_highlight" string="Approve" groups="account_payment_pro.account_confirm_payment" invisible="state != 'draft' or not requiere_double_validation" type="object"/>
+                <button name="action_unapprove" string="Back to Edit" invisible="state != 'draft' or not is_approved" type="object"/>
 
             </button>
             <!-- seccion para mejora pagos en otra moneda -->
@@ -73,15 +76,9 @@
             <group name="group4" invisible="is_internal_transfer">
                 <field name="payment_total"/>
                 <field name="payment_difference" invisible="state not in ('draft')"/>
-                <div invisible="payment_difference &lt;= 0.0" colspan="2">
-                    <field name="payment_difference_handling" widget="radio" nolabel="1"/>
-                    <div invisible="payment_difference_handling == 'open'">
-                        <label for="writeoff_account_id" string="Post Difference In" class="oe_edit_only"/>
-                        <field name="writeoff_account_id" string="Post Difference In" options="{'no_create': True}" required="payment_difference_handling == 'reconcile'"/>
-                        <label for="writeoff_label" class="oe_edit_only" string="Label"/>
-                        <field name="writeoff_label" required="payment_difference_handling == 'reconcile'"/>
-                    </div>
-                </div>
+                <field name="payment_difference_handling" string="Difference Handling" widget="radio" invisible="payment_difference == 0.0"/>
+                <field name="writeoff_account_id" string="Post Difference In" options="{'no_create': True}" required="payment_difference_handling == 'reconcile'" invisible="payment_difference_handling == 'open' or payment_difference == 0.0"/>
+                <field name="writeoff_label" required="payment_difference_handling == 'reconcile'" invisible="payment_difference_handling == 'open' or payment_difference == 0.0"/>
             </group>
         </group>
         <sheet>

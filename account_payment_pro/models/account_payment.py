@@ -124,7 +124,7 @@ class AccountPayment(models.Model):
         comodel_name='account.account',
         string="Difference Account",
         copy=False,
-        domain="[('deprecated', '=', False)]",
+        domain="[('deprecated', '=', False), ('account_type', 'in', ['expense', 'income', 'income_other'])]",
         check_company=True,
         # compute='_compute_writeoff_account_id',
         # store=True,
@@ -143,12 +143,12 @@ class AccountPayment(models.Model):
             if len(accounts) > 1:
                 raise ValidationError(_('To Pay Lines must be of the same account!'))
 
-    def action_confirm(self):
+    def action_approve(self):
         # chequeamos lineas a pagar antes de confirmar pago para evitar idas y vueltas de validacion
         self._check_to_pay_lines_account()
         self.filtered(lambda x: x.state == 'draft').is_approved = True
 
-    def action_unconfirm(self):
+    def action_unapprove(self):
         # chequeamos lineas a pagar antes de confirmar pago para evitar idas y vueltas de validacion
         self._check_to_pay_lines_account()
         self.filtered(lambda x: x.state == 'draft').is_approved = False
@@ -172,7 +172,9 @@ class AccountPayment(models.Model):
     def _compute_requiere_double_validation(self):
         double_validation = self.env['account.payment']
         if 'force_simple' not in self._context:
-            double_validation = self.filtered(lambda x: x.company_id.double_validation and not x.is_approved and x.partner_type == 'supplier')
+            double_validation = self.filtered(
+                lambda x: not x.is_internal_transfer and x.company_id.double_validation and
+                not x.is_approved and x.partner_type == 'supplier')
             double_validation.requiere_double_validation = True
         (self - double_validation).requiere_double_validation = False
 
