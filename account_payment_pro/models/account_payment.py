@@ -548,8 +548,10 @@ class AccountPayment(models.Model):
         if 'matched_move_line_ids' in fields_to_read and 'context' in specification['matched_move_line_ids']:
             specification['matched_move_line_ids']['context'].update({'matched_payment_ids': self._ids})
         return super().web_read(specification)
-    
-    @api.onchange('selected_debt')
-    def onchange_selected_debt(self):
-        for rec in self:
-            rec.amount = rec.selected_debt
+
+    """ Comentamos este onchange, porque nos rompia los asientos al momento de cargar el provedoor.
+        Al poner el amout, esto ya le daba valor al payment_total""" 
+    # @api.onchange('selected_debt')
+    # def onchange_selected_debt(self):
+    #     for rec in self:
+    #         rec.amount = rec.selected_debt
