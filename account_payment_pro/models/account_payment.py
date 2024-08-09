@@ -491,13 +491,18 @@ class AccountPayment(models.Model):
 
         # Se recomputan las lienas solo si la deuda que esta seleccionada solo si
         # cambio el partner, compania o partner_type
-
+        ### CAMBIO POR GG. AHORA DESDE PAGOS TRAE EL SELECCIONADO.
         with_payment_pro = self.filtered(lambda x: x.company_id.use_payment_pro)
-        (self - with_payment_pro).to_pay_move_line_ids = [Command.clear()]
-        for rec in with_payment_pro:
-            if rec.partner_id != rec._origin.partner_id or rec.partner_type != rec._origin.partner_type or \
-                    rec.company_id != rec._origin.company_id:
-                rec.add_all()
+        non_payment_pro = self - with_payment_pro
+        # Si el ID del partner no coincide, limpiar las líneas. Esto es por si cambian desde el pago el partner, cosa que no creo que hagan.
+        if not self.to_pay_move_line_ids or self.to_pay_move_line_ids.partner_id.id != self.partner_id.id:
+            non_payment_pro.to_pay_move_line_ids = [Command.clear()]
+            for rec in with_payment_pro:
+                if rec.partner_id != rec._origin.partner_id or rec.partner_type != rec._origin.partner_type or \
+                        rec.company_id != rec._origin.company_id:
+                    rec.add_all()
+        else:
+            self.to_pay_move_line_ids  # Mantener las líneas actuales
 
     def _get_to_pay_move_lines_domain(self):
         self.ensure_one()
