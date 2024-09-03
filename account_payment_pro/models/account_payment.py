@@ -550,14 +550,8 @@ class AccountPayment(models.Model):
             specification['matched_move_line_ids']['context'].update({'matched_payment_ids': self._ids})
         return super().web_read(specification)
 
-<<<<<<< HEAD
     """ Comentamos este onchange, porque nos rompia los asientos al momento de cargar el provedoor.
         Al poner el amout, esto ya le daba valor al payment_total""" 
-=======
-    # por ahora solo lo computamos en el inicial cuando venimos desde factura
-    # luego veremos si lo extendemos a distintos casos
-    # (contemplando re-calculo de retenciones, cheques pre-seleccionados)
->>>>>>> 84e2dc75dfc9c7d61b5ad864109e25232e432652
     # @api.onchange('selected_debt')
     # def onchange_selected_debt(self):
     #     for rec in self:
