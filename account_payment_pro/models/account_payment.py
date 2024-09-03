@@ -23,7 +23,6 @@ class AccountPayment(models.Model):
         copy=False,
     )
     exchange_rate = fields.Float(
-        string='Exchange Rate',
         compute='_compute_exchange_rate',
         # readonly=False,
         # inverse='_inverse_exchange_rate',
@@ -39,7 +38,6 @@ class AccountPayment(models.Model):
         currency_field='company_currency_id', compute='_compute_amount_company_currency_signed_pro',)
     payment_total = fields.Monetary(
         compute='_compute_payment_total',
-        string='Payment Total',
         tracking=True,
         currency_field='company_currency_id'
     )
@@ -64,8 +62,6 @@ class AccountPayment(models.Model):
         currency_field='currency_id',
     )
     selected_debt = fields.Monetary(
-        # string='To Pay lines Amount',
-        string='Selected Debt',
         compute='_compute_selected_debt',
         currency_field='company_currency_id',
     )
@@ -77,8 +73,6 @@ class AccountPayment(models.Model):
     to_pay_amount = fields.Monetary(
         compute='_compute_to_pay_amount',
         inverse='_inverse_to_pay_amount',
-        string='To Pay Amount',
-        # string='Total To Pay Amount',
         readonly=True,
         tracking=True,
         currency_field='company_currency_id',
@@ -101,41 +95,31 @@ class AccountPayment(models.Model):
     matched_move_line_ids = fields.Many2many(
         'account.move.line',
         compute='_compute_matched_move_line_ids',
-        help='Lines that has been matched to payments, only available after '
-        'payment validation',
+        help='Lines that has been matched to payments, only available after payment validation',
+    )
+    write_off_type_id = fields.Many2one(
+        'account.write_off.type',
+        check_company=True,
+    )
+    write_off_amount = fields.Monetary(
+        currency_field='company_currency_id',
     )
     payment_difference = fields.Monetary(
         compute='_compute_payment_difference',
-        readonly=True,
         string="Payments Difference",
         currency_field='company_currency_id',
-        help="Difference between selected debt (or to pay amount) and "
-        "payments amount"
+        help="Difference between 'To Pay Amount' and 'Payment Total'"
     )
-    payment_difference_handling = fields.Selection(
-        string="Payment Difference Handling",
-        selection=[('open', 'Keep open'), ('reconcile', 'Mark as fully paid')],
-        # compute='_compute_payment_difference_handling',
-        # store=True,
-        # readonly=False,
-        default='open',
-    )
-    writeoff_account_id = fields.Many2one(
-        comodel_name='account.account',
-        string="Difference Account",
-        copy=False,
-        domain="[('deprecated', '=', False), ('account_type', 'in', ['expense', 'income', 'income_other'])]",
-        check_company=True,
-        # compute='_compute_writeoff_account_id',
-        # store=True,
-        # readonly=False,
-    )
-    writeoff_label = fields.Char(string='Journal Item Label', default='Write-Off',
-                                 help='Change label of the counterpart that will hold the payment difference')
+    write_off_available = fields.Boolean(compute='_compute_write_off_available')
     is_approved = fields.Boolean(string="Approved", tracking=True, copy=False,)
     requiere_double_validation = fields.Boolean(compute='_compute_requiere_double_validation')
     use_payment_pro = fields.Boolean(related='company_id.use_payment_pro')
 
+    @api.depends('company_id')
+    def _compute_write_off_available(self):
+        for rec in self:
+            rec.write_off_available = bool(
+                rec.env['account.write_off.type'].search([('company_id', '=', rec.company_id.id)], limit=1))
 
     def _check_to_pay_lines_account(self):
         """ TODO ver si esto tmb lo llevamos a la UI y lo mostramos como un warning.
@@ -172,7 +156,7 @@ class AccountPayment(models.Model):
     def write(self, vals):
         if self.filtered('is_approved') and set(self) & set(self._get_confimed_blocked_field()):
             raise UserError(_('Your are trying to modify a protected field on an approved payment. Set it back to edit if you want to make this modification.'))
-        for rec in self:            
+        for rec in self:
             if rec.company_id.use_payment_pro or ('company_id' in vals and rec.env['res.company'].browse(vals['company_id']).use_payment_pro):
                 # Lo siguiente lo evaluamos para evitar la validacion de odoo de 
                 # https://github.com/odoo/odoo/blob/b6b90636938ae961c339807ea893cabdede9f549/addons/account/models/account_move.py#L2476
@@ -220,7 +204,7 @@ class AccountPayment(models.Model):
     #             pay.payment_type == 'inbound' else [('outbound_payment_method_line_ids', '!=', False)]
     #         pay.available_journal_ids = journals.filtered_domain(filtered_domain)
 
-    @api.onchange('company_id')
+    @api.depends('company_id')
     def _compute_available_journal_ids(self):
         # Cambiamos el metodo para que traiga los journals de la compañia sobre la cual se esta imputando el pago. 
         # Le agregamos el onchange de company para asegurarnos de que los available journals se computen siempre 
@@ -302,17 +286,17 @@ class AccountPayment(models.Model):
         # TODO: elimino los write_off_line_vals  porque los regenero tanto aca
         # como en retenciones. esto puede generar problemas
         write_off_line_vals = []
-        if self.payment_difference > 0 and self.payment_difference_handling == 'reconcile':
+        if self.write_off_amount:
             if self.payment_type == 'inbound':
                 # Receive money.
-                write_off_amount_currency = self.payment_difference
+                write_off_amount_currency = self.write_off_amount
             else:
                 # Send money.
-                write_off_amount_currency = -self.payment_difference
+                write_off_amount_currency = -self.write_off_amount
 
             write_off_line_vals.append({
-                'name': self.writeoff_label,
-                'account_id': self.writeoff_account_id.id,
+                'name': self.write_off_type_id.label or self.write_off_type_id.name,
+                'account_id': self.write_off_type_id.account_id.id,
                 'partner_id': self.partner_id.id,
                 'currency_id': self.currency_id.id,
                 'amount_currency': write_off_amount_currency,
@@ -345,7 +329,7 @@ class AccountPayment(models.Model):
         # "_inverse_amount_company_currency". Si bien no es elegante para todas las pruebas que hicimos funcionó bien.
         if self.mapped('open_move_line_ids'):
             res = res + ('force_amount_company_currency',)
-        return res + ('payment_difference_handling',)
+        return res + ('write_off_amount', 'write_off_type_id',)
 
     # TODO traer de account_ux y verificar si es necesario
     # @api.depends_context('default_is_internal_transfer')
@@ -433,10 +417,10 @@ class AccountPayment(models.Model):
             if len(lines) != 0:
                 rec.has_outstanding = True
 
-    @api.depends('amount_company_currency_signed_pro')
+    @api.depends('amount_company_currency_signed_pro', 'write_off_amount')
     def _compute_payment_total(self):
         for rec in self:
-            rec.payment_total = rec.amount_company_currency_signed_pro
+            rec.payment_total = rec.amount_company_currency_signed_pro + rec.write_off_amount
 
     @api.depends('amount_company_currency', 'payment_type')
     def _compute_amount_company_currency_signed_pro(self):
@@ -452,13 +436,22 @@ class AccountPayment(models.Model):
             else:
                 payment.amount_company_currency_signed_pro = payment.amount_company_currency
 
-    def _get_payment_difference(self):
-        return self.to_pay_amount - self.amount_company_currency_signed_pro
-
+    # TODO revisar depends
     @api.depends('payment_total', 'to_pay_amount', 'amount_company_currency_signed_pro')
     def _compute_payment_difference(self):
         for rec in self:
-            rec.payment_difference = rec._get_payment_difference()
+            rec.payment_difference = rec.to_pay_amount - rec.payment_total
+
+    def action_post_and_new(self):
+        self.ensure_one()
+        self.action_post()
+        return self.to_pay_move_line_ids.with_context(
+            force_payment_pro=True,
+            default_move_journal_types=('bank', 'cash'),
+            default_to_pay_amount=self.payment_difference,
+            default_partner_type=self.partner_type,
+            default_company_id=self.company_id.id,
+            default_partner_id=self.partner_id.id).action_register_payment()
 
     @api.depends('to_pay_move_line_ids', 'to_pay_move_line_ids.amount_residual')
     def _compute_selected_debt(self):
@@ -513,12 +506,15 @@ class AccountPayment(models.Model):
             ('account_id.account_type', '=', 'asset_receivable' if self.partner_type == 'customer' else 'liability_payable'),
         ]
         if self.env.context.get('active_ids'):
-            domain.append(('move_id.line_ids','in',self.env.context.get('active_ids')))
+            domain.append(('move_id.line_ids', 'in', self.env.context.get('active_ids')))
         return domain
 
-    def add_all(self):
+    def _add_all(self):
         for rec in self:
-            rec.to_pay_move_line_ids = [Command.clear(), Command.set(self.env['account.move.line'].search(rec.with_context(active_ids=False)._get_to_pay_move_lines_domain()).ids)]
+            rec.to_pay_move_line_ids = [Command.clear(), Command.set(self.env['account.move.line'].search(rec._get_to_pay_move_lines_domain()).ids)]
+
+    def action_add_all(self):
+        self.with_context(active_ids=False)._add_all()
 
     def remove_all(self):
         self.to_pay_move_line_ids = False
@@ -554,8 +550,14 @@ class AccountPayment(models.Model):
             specification['matched_move_line_ids']['context'].update({'matched_payment_ids': self._ids})
         return super().web_read(specification)
 
+<<<<<<< HEAD
     """ Comentamos este onchange, porque nos rompia los asientos al momento de cargar el provedoor.
         Al poner el amout, esto ya le daba valor al payment_total""" 
+=======
+    # por ahora solo lo computamos en el inicial cuando venimos desde factura
+    # luego veremos si lo extendemos a distintos casos
+    # (contemplando re-calculo de retenciones, cheques pre-seleccionados)
+>>>>>>> 84e2dc75dfc9c7d61b5ad864109e25232e432652
     # @api.onchange('selected_debt')
     # def onchange_selected_debt(self):
     #     for rec in self:
