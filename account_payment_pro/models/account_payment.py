@@ -493,7 +493,7 @@ class AccountPayment(models.Model):
             for rec in with_payment_pro:
                 if rec.partner_id != rec._origin.partner_id or rec.partner_type != rec._origin.partner_type or \
                         rec.company_id != rec._origin.company_id:
-                    rec.add_all()
+                    rec._add_all()
         else:
             self.to_pay_move_line_ids  # Mantener las líneas actuales
 
