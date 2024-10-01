@@ -44,7 +44,7 @@ class AccountMove(models.Model):
             payment_method = pay_journal._get_manual_payment_method_id(payment_type)
 
             payment = rec.env[
-                'account.payment'].create({
+                'account.payment'].with_context(pay_now=True).create({
                         'date': rec.invoice_date,
                         'partner_id': rec.commercial_partner_id.id,
                         'partner_type': partner_type,
@@ -77,9 +77,6 @@ class AccountMove(models.Model):
         return super().button_draft()
 
     def _post(self, soft=False):
-        requiere_double_validation = self.filtered('payment_id.requiere_double_validation')
-        if requiere_double_validation:
-            raise UserError(_('The payments %s require approve before post.') % ' '.join(requiere_double_validation.mapped('display_name')))
         res = super()._post(soft=soft)
         self.pay_now()
         return res

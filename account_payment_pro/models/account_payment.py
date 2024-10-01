@@ -112,7 +112,6 @@ class AccountPayment(models.Model):
     )
     write_off_available = fields.Boolean(compute='_compute_write_off_available')
     is_approved = fields.Boolean(string="Approved", tracking=True, copy=False,)
-    requiere_double_validation = fields.Boolean(compute='_compute_requiere_double_validation')
     use_payment_pro = fields.Boolean(related='company_id.use_payment_pro')
 
     @api.depends('company_id')
@@ -170,15 +169,6 @@ class AccountPayment(models.Model):
                     rec.move_id.journal_id = vals['journal_id']     
         return super().write(vals)
 
-    @api.depends('company_id.double_validation', 'partner_type')
-    def _compute_requiere_double_validation(self):
-        double_validation = self.env['account.payment']
-        if 'force_simple' not in self._context:
-            double_validation = self.filtered(
-                lambda x: not x.is_internal_transfer and x.company_id.double_validation and
-                not x.is_approved and x.partner_type == 'supplier')
-            double_validation.requiere_double_validation = True
-        (self - double_validation).requiere_double_validation = False
 
     ##############################
     # desde modelo account.payment
@@ -235,7 +225,6 @@ class AccountPayment(models.Model):
     # rouding odoo believes amount has changed)
     @api.onchange('amount_company_currency')
     def _inverse_amount_company_currency(self):
-
         for rec in self:
             if rec.other_currency and rec.amount_company_currency != \
                     rec.currency_id._convert(
@@ -246,7 +235,7 @@ class AccountPayment(models.Model):
                 force_amount_company_currency = False
             rec.force_amount_company_currency = force_amount_company_currency
 
-    @api.depends('amount', 'other_currency', 'force_amount_company_currency')
+    @api.depends('amount', 'other_currency', 'force_amount_company_currency','amount_company_currency_signed')
     def _compute_amount_company_currency(self):
         """
         * Si las monedas son iguales devuelve 1
@@ -259,7 +248,7 @@ class AccountPayment(models.Model):
             elif rec.force_amount_company_currency:
                 amount_company_currency = rec.force_amount_company_currency
             else:
-                amount_company_currency = rec.currency_id._convert(
+                amount_company_currency = rec.amount_company_currency_signed or rec.currency_id._convert(
                     rec.amount, rec.company_id.currency_id,
                     rec.company_id, rec.date)
             rec.amount_company_currency = amount_company_currency
@@ -285,6 +274,8 @@ class AccountPayment(models.Model):
     def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
         # TODO: elimino los write_off_line_vals  porque los regenero tanto aca
         # como en retenciones. esto puede generar problemas
+        if not self.company_id.use_payment_pro:
+            return super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
         write_off_line_vals = []
         if self.write_off_amount:
             if self.payment_type == 'inbound':
@@ -301,7 +292,7 @@ class AccountPayment(models.Model):
                 'currency_id': self.currency_id.id,
                 'amount_currency': write_off_amount_currency,
                 'balance': self.currency_id._convert(write_off_amount_currency, self.company_id.currency_id,
-                                                     self.company_id, self.date),
+                                                    self.company_id, self.date),
             })
         res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
         if self.force_amount_company_currency:
@@ -486,16 +477,12 @@ class AccountPayment(models.Model):
         # cambio el partner, compania o partner_type
         ### CAMBIO POR GG. AHORA DESDE PAGOS TRAE EL SELECCIONADO.
         with_payment_pro = self.filtered(lambda x: x.company_id.use_payment_pro)
-        non_payment_pro = self - with_payment_pro
-        # Si el ID del partner no coincide, limpiar las líneas. Esto es por si cambian desde el pago el partner, cosa que no creo que hagan.
-        if not self.to_pay_move_line_ids or self.to_pay_move_line_ids.partner_id.id != self.partner_id.id:
-            non_payment_pro.to_pay_move_line_ids = [Command.clear()]
-            for rec in with_payment_pro:
-                if rec.partner_id != rec._origin.partner_id or rec.partner_type != rec._origin.partner_type or \
-                        rec.company_id != rec._origin.company_id:
-                    rec._add_all()
-        else:
-            self.to_pay_move_line_ids  # Mantener las líneas actuales
+        if not self._context.get('pay_now'):
+            (self - with_payment_pro).to_pay_move_line_ids = [Command.clear()]
+        for rec in with_payment_pro:
+            if rec.partner_id != rec._origin.partner_id or rec.partner_type != rec._origin.partner_type or \
+                    rec.company_id != rec._origin.company_id:
+                rec._add_all()
 
     def _get_to_pay_move_lines_domain(self):
         self.ensure_one()
