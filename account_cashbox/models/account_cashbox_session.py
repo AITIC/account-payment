@@ -139,18 +139,32 @@ class AccountCashboxSession(models.Model):
                             max_diff_in_currency,
                         )))
 
+    # Replace method from account_payment_group
+    # def action_session_payments(self):
+    #     view = self.env.ref('account.view_account_payment_tree')
+    #     return {
+    #         'name': self.name,
+    #         'view_type': 'tree',
+    #         'view_mode': 'tree',
+    #         'res_model': 'account.payment.group',
+    #         'domain': [('cashbox_session_id', '=', self.id)],
+    #         'view_id': view.id,
+    #         'type': 'ir.actions.act_window',
+    #         'context': {'search_default_state_posted':True},
+    #     }
     def action_session_payments(self):
-        view = self.env.ref('account.view_account_payment_tree')
+        view = self.env.ref('account_cashbox.view_account_payment_group_tree')
         return {
             'name': self.name,
             'view_type': 'tree',
             'view_mode': 'tree',
-            'res_model': 'account.payment',
+            'res_model': 'account.payment.group',
             'domain': [('cashbox_session_id', '=', self.id)],
             'view_id': view.id,
             'type': 'ir.actions.act_window',
             'context': {'search_default_state_posted':True},
         }
+    # End
 
     @api.ondelete(at_uninstall=False)
     def _unlink_check_state(self):

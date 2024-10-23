@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- View for account.payment.group -->
+    <record id="view_account_payment_group_tree" model="ir.ui.view">
+        <field name="name">account.payment.group.tree</field>
+        <field name="model">account.payment.group</field>
+        <field name="arch" type="xml">
+            <tree string="Payment Groups">
+                <field name="date"/>
+                <field name="account_payment_id"/>
+                <field name="journal_id"/>
+                <field name="payment_method_line_id"/>
+                <field name="partner_id"/>
+                <field name="currency_id"/>
+                <field name="amount" sum="Totals"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_account_payment_form_pro_inherit_cashbox" model="ir.ui.view">
+        <field name="name">account.payment.form.pro.inherit.cashbox</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account_payment_group.view_account_payment_form_pro_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='account_payment_group_ids']/form//field[@name='journal_id']" position="replace">
+                <field name="cashbox_payment_method_ids" widget="many2many_tags" readonly="True" invisible="True"/>
+                <field name="cashbox_filter" invisible="True"/>
+                <field name="journal_id" domain="cashbox_filter" required="True"
+                    options="{'no_quick_create': True, 'no_create': True, 'no_create_edit':True}"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

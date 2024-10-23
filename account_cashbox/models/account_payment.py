@@ -12,7 +12,8 @@ class AccountPayment(models.Model):
     cashbox_session_id = fields.Many2one(
         'account.cashbox.session',
         string='POP Session',
-        compute="_compute_cashbox_session_id",
+        # compute="_compute_cashbox_session_id", --- Se reemplaza el compute por un default
+        default=lambda self: self._default_cashbox_session_id(),
         readonly=True,
         store=True
     )
@@ -21,24 +22,48 @@ class AccountPayment(models.Model):
         compute_sudo=False,
     )
 
+    cashbox_payment_method_ids = fields.Many2many('account.journal', compute="_compute_cashbox_payment_method_ids", string="Payment Methods", readonly=True, store=True)
+    cashbox_filter = fields.Binary(string='Cashbox Filter', compute="_compute_cashbox_payment_method_ids", readonly=True)
+    
+    @api.depends('cashbox_session_id')
+    def _compute_cashbox_payment_method_ids(self):
+        for rec in self:
+            rec.cashbox_payment_method_ids = rec.cashbox_session_id.cashbox_id.journal_ids
+            if rec.cashbox_payment_method_ids:
+                rec.cashbox_filter = [('id','in',rec.cashbox_payment_method_ids.ids)] 
+            else:
+                rec.cashbox_filter = [('type','in',['cash','bank']),('company_id','=',rec.company_id.id)]
+
     @api.depends_context('uid')
     # dummy depends para que se compute(no estamos seguros porque solo con el depends_context no computa)
     @api.depends('partner_id')
     def _compute_requiere_account_cashbox_session(self):
         self.requiere_account_cashbox_session = self.env.user.requiere_account_cashbox_session
 
-    def _compute_cashbox_session_id(self):
-        for rec in self:
-            session_ids = self.env['account.cashbox.session'].search([
-                ('state', '=', 'opened'),
-                '|',
-                ('user_ids', '=', self.env.uid),
-                ('user_ids', '=', False),
-            ])
-            if len(session_ids) == 1:
-                rec.cashbox_session_id = session_ids.id
-            else:
-                rec.cashbox_session_id = False
+    # INICIO - Se reemplaza el compute por un default
+    def _default_cashbox_session_id(self):
+        session_ids = self.env['account.cashbox.session'].search([
+            ('state', '=', 'opened'),
+            '|',
+            ('user_ids', '=', self.env.uid),
+            ('user_ids', '=', False),
+        ])
+        return session_ids.id if len(session_ids) == 1 else False
+    
+    # def _compute_cashbox_session_id(self):
+    #     for rec in self:
+    #         session_ids = self.env['account.cashbox.session'].search([
+    #             ('state', '=', 'opened'),
+    #             '|',
+    #             ('user_ids', '=', self.env.uid),
+    #             ('user_ids', '=', False),
+    #         ])
+    #         if len(session_ids) == 1:
+    #             rec.cashbox_session_id = session_ids.id
+    #         else:
+    #             rec.cashbox_session_id = False
+
+    # FIN - Se reemplaza el compute por un default
 
     @api.constrains('journal_id', 'currency_id', 'cashbox_session_id')
     def check_journal_currency(self):
@@ -61,7 +86,26 @@ class AccountPayment(models.Model):
             if  not self.env.context.get('paired_transfer') and self.env.user.requiere_account_cashbox_session and not rec.cashbox_session_id:
                 raise UserError(_('Your user requires to use payment session on each payment'))
 
-        super().action_post()
+        res = super().action_post()
+        for rec in self:
+            if rec.cashbox_session_id:
+                for line in rec.account_payment_group_ids:
+                    line.write({'cashbox_session_id': rec.cashbox_session_id.id})
+            # si es una transferencia interna y esta en una sesion abierta, creamos un account.payment.group
+            if rec.state == 'posted' and rec.is_internal_transfer and rec.cashbox_session_id and rec.cashbox_session_id.state == 'opened':
+                dict_apg = {
+                    'move_id': rec.move_id.id,
+                    'account_payment_id': rec.id,
+                    'currency_id': rec.currency_id.id,
+                    'partner_id': rec.partner_id.id,
+                    'date': rec.date,
+                    'journal_id': rec.destination_journal_id.id,
+                    'amount': rec.amount,
+                    'payment_method_line_id': rec.payment_method_line_id.id,
+                }
+                account_payment_group = self.env['account.payment.group'].create(dict_apg)
+                rec.account_payment_group_id = account_payment_group.id
+        return res
 
     def action_cancel(self):
         closed_sessions = self.filtered(lambda x: x.cashbox_session_id.state == 'closed')
@@ -76,8 +120,9 @@ class AccountPayment(models.Model):
         for pay in self.filtered('cashbox_session_id'):
             # hacemos dominio sobre los line_ids y no los diarios del pop config porque
             # puede ser que sea una sesion vieja y que el setting pop config cambie
+            pay_group_journal = self.env['account.journal'].get_default_payment_group_journal()
             pay.available_journal_ids = pay.available_journal_ids._origin.filtered(
-                lambda x: x in pay.cashbox_session_id.line_ids.mapped('journal_id'))
+                lambda x: x in pay.cashbox_session_id.line_ids.mapped('journal_id') | pay_group_journal)
 
     @api.onchange('cashbox_session_id')
     def _onchange_cashbox_session(self):
@@ -86,3 +131,4 @@ class AccountPayment(models.Model):
         for rec in self:
             if rec.journal_id not in rec.available_journal_ids._origin:
                 rec.journal_id = rec.available_journal_ids._origin[:1]
+

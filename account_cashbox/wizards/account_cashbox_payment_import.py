@@ -12,7 +12,7 @@ class AccountCashboxPaymentImport(models.TransientModel):
 
     cashbox_session_id = fields.Many2one('account.cashbox.session', required=True, readonly=True, ondelete='cascade')
     available_journal_ids = fields.Many2many('account.journal', compute='_compute_available_journal_ids')
-    payment_ids = fields.Many2many('account.payment', string='Payments')
+    payment_ids = fields.Many2many('account.payment.group', string='Payments')
 
     @api.model
     def default_get(self, fields):

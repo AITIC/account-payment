@@ -46,12 +46,17 @@ class PopSessionJournalControl(models.Model):
 
     @api.depends('cashbox_session_id.payment_ids','cashbox_session_id.payment_ids.state', 'balance_start')
     def _compute_amounts(self):
-        payments_lines = self.env['account.payment'].search([
+        # adaptation for account.payment.group
+        # payments_lines = self.env['account.payment'].search([
+        payments_lines = self.env['account.payment.group'].search([
                 ('cashbox_session_id', 'in', self.mapped('cashbox_session_id').ids), ('state', '=', 'posted')])
         for record in self:
-            amount = sum(payments_lines.filtered(
-                lambda p: p.cashbox_session_id == record.cashbox_session_id and p.journal_id == record.journal_id
-                ).mapped('amount_signed'))
+            amount = sum(
+                payments_lines.filtered(
+                    lambda p: p.cashbox_session_id == record.cashbox_session_id and 
+                            p.journal_id == record.journal_id
+                ).mapped(lambda p: -p.amount if (p.account_payment_id.payment_type == 'outbound' and not p.account_payment_id.is_internal_transfer) else p.amount)
+            )
             record.amount = amount
             record.balance_end = amount + record.balance_start
             self -= record
@@ -68,5 +73,19 @@ class PopSessionJournalControl(models.Model):
         for rec in self:
             rec.currency_id = rec.journal_id.currency_id or rec.journal_id.company_id.currency_id
 
+    #def action_session_payments(self):
+    #    return self.with_context(search_default_journal_id=self.journal_id.id).cashbox_session_id.action_session_payments()
+    
+    # Modification for account.payment.group
     def action_session_payments(self):
-        return self.with_context(search_default_journal_id=self.journal_id.id).cashbox_session_id.action_session_payments()
+        view = self.env.ref('account_cashbox.view_account_payment_group_tree')
+        return {
+            'name': self.cashbox_session_id.name + '-' + self.journal_id.name,
+            'view_type': 'tree',
+            'view_mode': 'tree',
+            'res_model': 'account.payment.group',
+            'domain': [('cashbox_session_id', '=', self.cashbox_session_id.id),('journal_id','=',self.journal_id.id)],
+            'view_id': view.id,
+            'type': 'ir.actions.act_window',
+            'context': {'search_default_state_posted':True},
+        }
