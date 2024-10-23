@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- View for account.payment.group -->
+    <record id="view_account_payment_group_tree" model="ir.ui.view">
+        <field name="name">account.payment.group.tree</field>
+        <field name="model">account.payment.group</field>
+        <field name="arch" type="xml">
+            <tree string="Payment Groups">
+                <field name="date"/>
+                <field name="account_payment_id"/>
+                <field name="journal_id"/>
+                <field name="payment_method_line_id"/>
+                <field name="partner_id"/>
+                <field name="currency_id"/>
+                <field name="amount" sum="Totals"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+</odoo>
