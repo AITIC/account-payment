@@ -42,6 +42,17 @@ class AccountPayment(models.Model):
 
     # INICIO - Se reemplaza el compute por un default
     def _default_cashbox_session_id(self):
+
+        # si estamos en un cheque, tomamos la sesion de la ultima operacion
+        if self.env.context and 'active_model' in self.env.context and self.env.context['active_model'] == 'account.check':
+            check_id = self.env['account.check'].browse(self.env.context['active_id'])
+            last_operation = check_id.operation_ids.sorted(key=lambda r: r.id, reverse=True)[:1]
+            if last_operation:
+                if last_operation[0].origin and last_operation[0].origin.cashbox_session_id:
+                    return last_operation[0].origin.cashbox_session_id.id
+                else:
+                    return False
+                
         session_ids = self.env['account.cashbox.session'].search([
             ('state', '=', 'opened'),
             '|',
