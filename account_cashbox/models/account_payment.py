@@ -24,7 +24,9 @@ class AccountPayment(models.Model):
 
     cashbox_payment_method_ids = fields.Many2many('account.journal', compute="_compute_cashbox_payment_method_ids", string="Payment Methods", readonly=True, store=True)
     cashbox_filter = fields.Binary(string='Cashbox Filter', compute="_compute_cashbox_payment_method_ids", readonly=True)
-    
+    destination_journal_filter = fields.Binary(string='Destination Journal Filter', compute="_compute_destination_journal_filter", readonly=True)
+
+
     @api.depends('cashbox_session_id')
     def _compute_cashbox_payment_method_ids(self):
         for rec in self:
@@ -34,6 +36,22 @@ class AccountPayment(models.Model):
             else:
                 rec.cashbox_filter = [('type','in',['cash','bank']),('company_id','=',rec.company_id.id)]
 
+    @api.depends('cashbox_session_id', 'journal_id', 'company_id', 'available_journal_ids')
+    def _compute_destination_journal_filter(self):
+        for rec in self:
+            base_domain = [
+                ('company_id', 'in', [False, rec.company_id.id]),
+                '|',
+                ('company_id', '=', False),
+                ('company_id', 'parent_of', rec.company_id.id),
+                ('type', 'in', ('bank', 'cash')),
+                ('id', '!=', rec.journal_id.id)
+            ]
+            if rec.cashbox_session_id:
+                base_domain += [('id', 'in', rec.available_journal_ids.ids)]
+
+            rec.destination_journal_filter = base_domain
+            
     @api.depends_context('uid')
     # dummy depends para que se compute(no estamos seguros porque solo con el depends_context no computa)
     @api.depends('partner_id')

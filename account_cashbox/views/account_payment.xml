@@ -16,6 +16,11 @@
                     domain="[('state', '=', 'opened'), ('company_id', '=', company_id), '|', ('user_ids', '=', uid), ('user_ids', '=', False)]"
                     required="requiere_account_cashbox_session and state == 'draft'"
                     readonly = "state != 'draft'"/>
+                <field name="destination_journal_filter" invisible="1"/>
+
+            </field>
+            <field name="destination_journal_id" position="replace">
+                <field name="destination_journal_id" domain="destination_journal_filter"/>
             </field>
         </field>
     </record>
