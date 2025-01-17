@@ -5,7 +5,7 @@
         <field name="name">account.payment.group.tree</field>
         <field name="model">account.payment.group</field>
         <field name="arch" type="xml">
-            <tree string="Payment Groups">
+            <tree string="Payment Groups" create="0">
                 <field name="date"/>
                 <field name="account_payment_id"/>
                 <field name="journal_id"/>
