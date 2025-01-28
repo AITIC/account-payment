@@ -32,9 +32,9 @@ class AccountPayment(models.Model):
         for rec in self:
             rec.cashbox_payment_method_ids = rec.cashbox_session_id.cashbox_id.journal_ids
             if rec.cashbox_payment_method_ids:
-                rec.cashbox_filter = [('id','in',rec.cashbox_payment_method_ids.ids)] 
+                rec.cashbox_filter = [('id','in',rec.cashbox_payment_method_ids.ids),('default_account_payment_group','=',False)] 
             else:
-                rec.cashbox_filter = [('type','in',['cash','bank']),('company_id','=',rec.company_id.id)]
+                rec.cashbox_filter = [('type','in',['cash','bank']),('company_id','=',rec.company_id.id),('default_account_payment_group','=',False)]
 
     @api.depends('cashbox_session_id', 'journal_id', 'company_id', 'available_journal_ids')
     def _compute_destination_journal_filter(self):
