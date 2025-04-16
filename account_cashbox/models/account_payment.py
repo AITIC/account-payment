@@ -77,6 +77,10 @@ class AccountPayment(models.Model):
             ('user_ids', '=', self.env.uid),
             ('user_ids', '=', False),
         ])
+
+        if len(session_ids) > 1:
+            session_ids = session_ids.filtered(lambda x: x.cashbox_id.company_id.id == self.env.company.id)
+                    
         return session_ids.id if len(session_ids) == 1 else False
     
     # def _compute_cashbox_session_id(self):
