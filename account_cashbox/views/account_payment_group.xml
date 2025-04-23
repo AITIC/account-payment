@@ -10,6 +10,7 @@
                 <field name="account_payment_id"/>
                 <field name="journal_id"/>
                 <field name="payment_method_line_id"/>
+                <field name="ref"/>
                 <field name="partner_id"/>
                 <field name="currency_id"/>
                 <field name="amount" sum="Totals"/>
