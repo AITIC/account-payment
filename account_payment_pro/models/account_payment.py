@@ -59,7 +59,7 @@ class AccountPayment(models.Model):
     )
     unmatched_amount = fields.Monetary(
         compute='_compute_matched_amounts',
-        currency_field='currency_id',
+        currency_field='company_currency_id',
     )
     selected_debt = fields.Monetary(
         compute='_compute_selected_debt',
@@ -111,7 +111,6 @@ class AccountPayment(models.Model):
         help="Difference between 'To Pay Amount' and 'Payment Total'"
     )
     write_off_available = fields.Boolean(compute='_compute_write_off_available')
-    is_approved = fields.Boolean(string="Approved", tracking=True, copy=False,)
     use_payment_pro = fields.Boolean(related='company_id.use_payment_pro')
 
     @api.depends('company_id')
@@ -128,33 +127,15 @@ class AccountPayment(models.Model):
             if len(accounts) > 1:
                 raise ValidationError(_('To Pay Lines must be of the same account!'))
 
-    def action_approve(self):
-        # chequeamos lineas a pagar antes de confirmar pago para evitar idas y vueltas de validacion
-        self._check_to_pay_lines_account()
-        self.filtered(lambda x: x.state == 'draft').is_approved = True
-
-    def action_unapprove(self):
-        # chequeamos lineas a pagar antes de confirmar pago para evitar idas y vueltas de validacion
-        self._check_to_pay_lines_account()
-        self.filtered(lambda x: x.state == 'draft').is_approved = False
-
     def action_draft(self):
         # Seteamos posted_before en true para que nos permita pasar a borrador el pago y poder realizar cambio sobre el mismo
         # Nos salteamos la siguente validacion
         # https://github.com/odoo/odoo/blob/b6b90636938ae961c339807ea893cabdede9f549/addons/account/models/account_move.py#L2474
         if self.company_id.use_payment_pro:
             self.posted_before = False
-        self.is_approved = False
         super().action_draft()
 
-    @api.model
-    def _get_confimed_blocked_field(self):
-        return ['partner_id', 'partner_type', 'to_pay_move_line_ids', 'unreconciled_amount',
-                'withholdable_advanced_amount', 'company_id', 'to_pay_amount']
-
     def write(self, vals):
-        if self.filtered('is_approved') and set(self) & set(self._get_confimed_blocked_field()):
-            raise UserError(_('Your are trying to modify a protected field on an approved payment. Set it back to edit if you want to make this modification.'))
         for rec in self:
             if rec.company_id.use_payment_pro or ('company_id' in vals and rec.env['res.company'].browse(vals['company_id']).use_payment_pro):
                 # Lo siguiente lo evaluamos para evitar la validacion de odoo de 
@@ -278,12 +259,13 @@ class AccountPayment(models.Model):
             return super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
         write_off_line_vals = []
         if self.write_off_amount:
+            conversion_rate = self.exchange_rate or 1.0
             if self.payment_type == 'inbound':
                 # Receive money.
-                write_off_amount_currency = self.write_off_amount
+                write_off_amount_currency = self.write_off_amount / conversion_rate
             else:
                 # Send money.
-                write_off_amount_currency = -self.write_off_amount
+                write_off_amount_currency = -self.write_off_amount / conversion_rate
 
             write_off_line_vals.append({
                 'name': self.write_off_type_id.label or self.write_off_type_id.name,
@@ -318,7 +300,7 @@ class AccountPayment(models.Model):
         # triggereando un write y luego llamando a este metodo y dando error, por ahora no encontramos una mejor forma
         # esto esta ligado de alguna manera a un llamado que se hace dos veces por "culpa" del método
         # "_inverse_amount_company_currency". Si bien no es elegante para todas las pruebas que hicimos funcionó bien.
-        if self.mapped('open_move_line_ids'):
+        if self.mapped('move_id.line_ids'):
             res = res + ('force_amount_company_currency',)
         return res + ('write_off_amount', 'write_off_type_id',)
 
@@ -393,7 +375,7 @@ class AccountPayment(models.Model):
             sign = rec.partner_type == 'supplier' and -1.0 or 1.0
             rec.matched_amount = sign * sum(
                 rec.matched_move_line_ids.with_context(matched_payment_ids=rec.ids).mapped('payment_matched_amount'))
-            rec.unmatched_amount = rec.payment_total - rec.matched_amount
+            rec.unmatched_amount = abs(rec.payment_total) - rec.matched_amount
 
     @api.depends('to_pay_move_line_ids')
     def _compute_has_outstanding(self):
@@ -444,11 +426,15 @@ class AccountPayment(models.Model):
             default_company_id=self.company_id.id,
             default_partner_id=self.partner_id.id).action_register_payment()
 
-    @api.depends('to_pay_move_line_ids', 'to_pay_move_line_ids.amount_residual')
+    # En el pasado se contaba con to_pay_move_line_ids.amount_residual dentro de los depends,  y no deberiamos por cuestiones de performance, ya que ademas no era necesario
+    @api.depends('to_pay_move_line_ids')
     def _compute_selected_debt(self):
         for rec in self:
             # factor = 1
-            rec.selected_debt = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual')) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            amount_residual = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual'))
+            if self.env.context.get('pay_now') and amount_residual != sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual_currency')):
+                amount_residual = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual_currency'))
+            rec.selected_debt = amount_residual * (-1.0 if rec.partner_type == 'supplier' else 1.0)
             # TODO error en la creacion de un payment desde el menu?
             # if rec.payment_type == 'outbound' and rec.partner_type == 'customer' or \
             #         rec.payment_type == 'inbound' and rec.partner_type == 'supplier':
@@ -466,6 +452,7 @@ class AccountPayment(models.Model):
         for rec in self:
             rec.unreconciled_amount = rec.to_pay_amount - rec.selected_debt
 
+    # We dont set 'is_internal_transfer' as a dependencies as it could leed to recompute to_pay_move_line_ids
     @api.depends('partner_id', 'partner_type', 'company_id')
     def _compute_to_pay_move_lines(self):
         # TODO ?
@@ -520,9 +507,7 @@ class AccountPayment(models.Model):
 
     def action_post(self):
         res = super().action_post()
-        for rec in self:
-            if (rec.is_approved and rec.payment_difference):
-                raise ValidationError(_('To Pay Amount and Payment Amount must be equal!'))
+        for rec in self.filtered(lambda x: x.company_id.use_payment_pro and not x.is_internal_transfer):
             counterpart_aml = rec.mapped('line_ids').filtered(
                 lambda r: not r.reconciled and r.account_id.account_type in self._get_valid_payment_account_types())
             if counterpart_aml and rec.to_pay_move_line_ids:
