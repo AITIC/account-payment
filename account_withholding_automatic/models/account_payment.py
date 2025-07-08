@@ -2,7 +2,7 @@
 # For copyright and license notices, see __manifest__.py file in module root
 # directory
 ##############################################################################
-from odoo import models, fields
+from odoo import models, fields, api
 # import odoo.addons.decimal_precision as dp
 # from odoo.exceptions import ValidationError
 # from dateutil.relativedelta import relativedelta
@@ -62,13 +62,13 @@ class AccountPayment(models.Model):
         readonly=True,
     )
 
-    def _get_counterpart_move_line_vals(self, invoice=False):
-        vals = super(AccountPayment, self)._get_counterpart_move_line_vals(
-            invoice=invoice)
-        if self.payment_group_id:
-            # we check they are code withholding and we get taxes
-            taxes = self.payment_group_id.payment_ids.filtered(
-                lambda x: x.payment_method_code == 'withholding').mapped(
-                'tax_withholding_id')
-            vals['tax_ids'] = [(6, False, taxes.ids)]
-        return vals
+    @api.depends('payment_method_code', 'tax_withholding_id.name')
+    def _compute_payment_method_description(self):
+        payments = self.filtered(
+            lambda x: x.payment_method_code == 'withholding')
+        for rec in payments:
+            name = rec.tax_withholding_id.name or rec.payment_method_id.name
+            rec.payment_method_description = name
+        return super(
+            AccountPayment,
+            (self - payments))._compute_payment_method_description()

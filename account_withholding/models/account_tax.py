@@ -1,15 +1,8 @@
 from odoo import models, fields, api
+from odoo.addons.account.models.account_tax import TYPE_TAX_USE
 
 
-class AccountTaxTemplate(models.Model):
-    _inherit = "account.tax.template"
-
-    type_tax_use = fields.Selection(
-        selection_add=[
-            ('customer', 'Customer Payment'),
-            ('supplier', 'Supplier Payment'),
-        ],
-    )
+TYPE_TAX_USE += [('customer', 'Customer Payment'), ('supplier', 'Supplier Payment')]
 
 
 class AccountTax(models.Model):
@@ -18,12 +11,6 @@ class AccountTax(models.Model):
     """
     _inherit = "account.tax"
 
-    type_tax_use = fields.Selection(
-        selection_add=[
-            ('customer', 'Customer Payment'),
-            ('supplier', 'Supplier Payment'),
-        ],
-    )
     amount = fields.Float(
         default=0.0,
     )
@@ -40,18 +27,17 @@ class AccountTax(models.Model):
         copy=False
     )
 
-    @api.model
-    def create(self, vals):
-        tax = super(AccountTax, self).create(vals)
-        if tax.type_tax_use == 'supplier' and not tax.withholding_sequence_id:
-            tax.withholding_sequence_id = self.withholding_sequence_id.\
-                sudo().create({
-                    'name': tax.name,
-                    'implementation': 'no_gap',
-                    # 'prefix': False,
-                    'padding': 8,
-                    'number_increment': 1,
-                    'code': 'account.tax.withholding',
-                    'company_id': tax.company_id.id,
-                }).id
-        return tax
+    @api.model_create_multi
+    def create(self, vals_list):
+        recs = super(AccountTax, self).create(vals_list)
+        for tax in recs.filtered(lambda x: x.type_tax_use == 'supplier' and not x.withholding_sequence_id):
+            tax.withholding_sequence_id = self.withholding_sequence_id.sudo().create({
+                'name': tax.name,
+                'implementation': 'no_gap',
+                # 'prefix': False,
+                'padding': 8,
+                'number_increment': 1,
+                'code': 'account.tax.withholding',
+                'company_id': tax.company_id.id,
+            }).id
+        return recs
