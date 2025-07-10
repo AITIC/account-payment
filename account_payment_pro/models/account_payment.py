@@ -291,6 +291,12 @@ class AccountPayment(models.Model):
             res[1].update({
                 counterpart_field: res[1][counterpart_field] + difference,
             })
+
+        if self.currency_id != self.company_id.currency_id and not self.is_internal_transfer:
+            res = [
+                {**line, 'debit': 0.0, 'credit': 0.0}
+                for line in res
+            ]
         return res
 
     @api.model
