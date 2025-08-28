@@ -123,8 +123,9 @@ class AccountPayment(models.Model):
         for rec in self:
             if rec.cashbox_session_id:
                 for line in rec.account_payment_group_ids:
-                    line.write({'cashbox_session_id': rec.cashbox_session_id.id})
-            # si es una transferencia interna y esta en una sesion abierta, creamos un account.payment.group
+                    line.write({
+                        'amount_display': -abs(line.amount) if rec.payment_type == 'outbound' else abs(line.amount),
+                        'cashbox_session_id': rec.cashbox_session_id.id})            # si es una transferencia interna y esta en una sesion abierta, creamos un account.payment.group
             if rec.state == 'posted' and rec.is_internal_transfer and rec.cashbox_session_id and rec.cashbox_session_id.state == 'opened':
                 dict_apg = {
                     'move_id': rec.move_id.id,
@@ -134,6 +135,7 @@ class AccountPayment(models.Model):
                     'date': rec.date,
                     'journal_id': rec.destination_journal_id.id,
                     'amount': rec.amount,
+                    'amount_display': rec.amount,
                     'payment_method_line_id': rec.payment_method_line_id.id,
                 }
                 account_payment_group = self.env['account.payment.group'].create(dict_apg)

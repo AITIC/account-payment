@@ -694,3 +694,8 @@ msgstr "Requiere control de efectivo"
 #: model:ir.model,name:account_cashbox.model_account_cashbox_session_line
 msgid "session journal"
 msgstr "Diario de la sesión"
+
+#. module: account_cashbox
+#: model:ir.model.fields,field_description:account_cashbox.field_account_payment_group__amount_display
+msgid "Display Amount"
+msgstr "Importe"

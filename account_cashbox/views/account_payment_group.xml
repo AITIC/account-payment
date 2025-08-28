@@ -13,7 +13,8 @@
                 <field name="ref"/>
                 <field name="partner_id"/>
                 <field name="currency_id"/>
-                <field name="amount" sum="Totals"/>
+                <field name="amount_display" sum="Totals" optional="show"/>
+                <field name="amount" sum="Totals" optional="hide"/>
                 <field name="state" widget="badge"/>
             </tree>
         </field>

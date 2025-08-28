@@ -20,6 +20,7 @@ class AccountPaymentGroup(models.Model):
 
     cashbox_filter = fields.Binary(string='Cashbox Filter', compute="_compute_cashbox_payment_method_ids", readonly=True)
     cashbox_payment_method_ids = fields.Many2many('account.journal', compute="_compute_cashbox_payment_method_ids", string="Payment Methods", readonly=True)
+    amount_display = fields.Monetary(string=_('Display Amount'), currency_field='currency_id', store=True)
 
     @api.depends('account_payment_id')
     def _compute_cashbox_payment_method_ids(self):
